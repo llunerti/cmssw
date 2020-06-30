@@ -72,3 +72,6 @@ DEFINE_FWK_MODULE(DTTriggerLutTest);
 
 #include "DQM/DTMonitorClient/src/DTRunConditionVarClient.h"
 DEFINE_FWK_MODULE(DTRunConditionVarClient);
+
+#include "DQM/DTMonitorClient/src/DTTnPEfficiencyClient.h"
+DEFINE_FWK_MODULE(DTTnPEfficiencyClient);
