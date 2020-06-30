@@ -18,7 +18,7 @@ dtTnPEfficiencyMonitor = DQMEDAnalyzer('DTTnPEfficiencyTask',
 				       #  CutBasedIdTight = 1UL << 3
                                        tagCut = cms.untracked.string('(selectors & 8) && ((isolationR03.sumPt)/(pt) < 0.05)'),
                                        trigName = cms.untracked.string("HLT_Mu50_v*"),
-                                       isoTrigName = cms.untracked.string("HLT_IsoMu24_v*"),
+                                       isoTrigName = cms.untracked.string("HLT_IsoMu*"),
                                        # If true, enables detailed analysis plots
                                        detailedAnalysis = cms.untracked.bool(True)
 )

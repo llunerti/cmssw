@@ -105,10 +105,11 @@ void DTTnPEfficiencyTask::bookHistograms(DQMStore::IBooker& iBooker, edm::Run co
       LogTrace("DTDQM|DTMonitorModule|DTTnPEfficiencyTask")
 	<< "[DTTnPEfficiencyTask]: booking histos in " << baseDir << std::endl;
 
-      m_histos["muonPt"] = iBooker.book1D("muonPt", "muonPt", 125, 0., 250.);
-      m_histos["muonEta"] = iBooker.book1D("muonEta", "muonEta",18, -2.4, 2.4);
-      m_histos["muonNumberOfMatchedStations"] = iBooker.book1D("muonNumberOfMatchedStations", "muonNumberOfMatchedStations",5, 0., 5);
-      m_histos["pairMass"] = iBooker.book1D("pairMass", "pairMass", 10, 80., 100.);
+      m_histos["probePt"] = iBooker.book1D("probePt", "probePt", 125, 0., 250.);
+      m_histos["probeEta"] = iBooker.book1D("probeEta", "probeEta",18, -1.2, 1.2);
+      m_histos["probePhi"] = iBooker.book1D("probePhi", "probePhi",30, -TMath::Pi(), TMath::Pi());
+      m_histos["probeNumberOfMatchedStations"] = iBooker.book1D("probeNumberOfMatchedStations", "probeNumberOfMatchedStations",5, 0., 5);
+      m_histos["pairMass"] = iBooker.book1D("pairMass", "pairMass", 25, 70., 120.);
     }
       
   for (int wheel = -2; wheel <= 2; ++wheel) 
@@ -192,13 +193,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
 	  
 	}
 
-        if (m_detailedAnalysis)
-          {
-            m_histos.find("muonPt")->second->Fill(muon.pt());
-            m_histos.find("muonEta")->second->Fill(muon.eta());
-            m_histos.find("muonNumberOfMatchedStations")->second->Fill(muon.numberOfMatchedStations());
-          }
-
         for (const auto chambMatch : muon.matches() ) 
           {
             // look only in DTs
@@ -234,9 +228,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
 		// +2 ---> 4
 		WhSecSta_dx[wheel+2][sector-1][station-1] = std::abs(chambMatch.x - matchedSegment.x);
 
-                std::string hName = std::string("nEntriesPerCh_W") + std::to_string(wheel);  
-                m_histos.find(hName)->second->Fill(sector, station);
-
               }  
           }//loop over chamber matches
 
@@ -253,8 +244,8 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
     {
       for(unsigned i=0; i<probe_muons.size(); i++)
       {
-        if(!m_tagSelector(probe_muons.at(i)) &&
-	   !probe_muons_firesTrig.at(i)) 
+        if(!m_tagSelector(probe_muons.at(i)) //&&
+	   /*!probe_muons_firesIsoTrig.at(i)*/) 
 	  continue;
 	for(unsigned j=0; j<probe_muons.size(); j++)
 	{
@@ -311,6 +302,21 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
         math::PtEtaPhiMLorentzVector probe (tnp_pairs[maxPtPairIdx][0].second.polarP4());
         math::PtEtaPhiMLorentzVector TnpPair = tag + probe;
         m_histos.find("pairMass")->second->Fill(TnpPair.M());
+
+	if(abs(tnp_pairs[maxPtPairIdx][0].first.eta()) < 1.2){
+          m_histos.find("probeEta")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.eta());
+          m_histos.find("probePhi")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.phi());
+          m_histos.find("probeNumberOfMatchedStations")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.numberOfMatchedStations());
+	}
+
+	if(abs(tnp_pairs[maxPtPairIdx][0].second.eta()) < 1.2){
+          m_histos.find("probeEta")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.eta());
+          m_histos.find("probePhi")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.phi());
+          m_histos.find("probeNumberOfMatchedStations")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.numberOfMatchedStations());
+	}
+
+        m_histos.find("probePt")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.pt());
+        m_histos.find("probePt")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.pt());
       }
 
       for (unsigned wheelIdx=0; wheelIdx < 5; ++wheelIdx)
@@ -340,7 +346,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
                 {
       	          std::string hName = std::string("nFailingProbePerCh_W") + std::to_string((int)wheelIdx-2);  
       	          m_histos.find(hName)->second->Fill(sectorIdx+1, stationIdx+1);
-      	          m_histos.find("nFailingProbe_allCh")->second->Fill((stationIdx+1) + 5*(wheelIdx));
+      	          m_histos.find("nFailingProbe_allCh")->second->Fill((stationIdx+1) + 4*(wheelIdx));
                 }
               }
             }
@@ -362,22 +368,14 @@ void DTTnPEfficiencyTask::bookWheelHistos(DQMStore::IBooker& iBooker,
   LogTrace("DTDQM|DTMonitorModule|DTTnPEfficiencyTask")
     << "[DTTnPEfficiencyTask]: booking histos in " << baseDir << std::endl;
 
-  auto hName = std::string("nEntriesPerCh_W") + std::to_string(wheel);    
   auto hName_pass = std::string("nPassingProbePerCh_W") + std::to_string(wheel);    
   auto hName_fail = std::string("nFailingProbePerCh_W") + std::to_string(wheel);    
 
-  MonitorElement* me = iBooker.book2D(hName.c_str(), hName.c_str(), 14, 0.5, 14.5, 4, 0., 4.5);
   MonitorElement* me_pass = iBooker.book2D(hName_pass.c_str(), hName_pass.c_str(), 14, 0.5, 14.5, 4, 0., 4.5);
   MonitorElement* me_fail = iBooker.book2D(hName_fail.c_str(), hName_fail.c_str(), 14, 0.5, 14.5, 4, 0., 4.5);
 
   MonitorElement* me_pass_allCh = iBooker.book1D("nPassingProbe_allCh", "nPassingProbe_allCh", 20, 0.5, 20.5);
   MonitorElement* me_fail_allCh = iBooker.book1D("nFailingProbe_allCh", "nFailingProbe_allCh", 20, 0.5, 20.5);
-
-  me->setBinLabel(1, "MB1", 2);
-  me->setBinLabel(2, "MB2", 2);
-  me->setBinLabel(3, "MB3", 2);
-  me->setBinLabel(4, "MB4", 2);
-  me->setAxisTitle("Sector", 1);
 
   me_pass->setBinLabel(1, "MB1", 2);
   me_pass->setBinLabel(2, "MB2", 2);
@@ -391,51 +389,50 @@ void DTTnPEfficiencyTask::bookWheelHistos(DQMStore::IBooker& iBooker,
   me_fail->setBinLabel(4, "MB4", 2);
   me_fail->setAxisTitle("Sector", 1);
 
-  me_pass_allCh->setBinLabel(1 , "MB1/-2", 1);
-  me_pass_allCh->setBinLabel(2 , "MB2/-2", 1);
-  me_pass_allCh->setBinLabel(3 , "MB3/-2", 1);
-  me_pass_allCh->setBinLabel(4 , "MB4/-2", 1);
-  me_pass_allCh->setBinLabel(5 , "MB1/-1", 1);
-  me_pass_allCh->setBinLabel(6 , "MB2/-1", 1);
-  me_pass_allCh->setBinLabel(7 , "MB3/-1", 1);
-  me_pass_allCh->setBinLabel(8 , "MB4/-1", 1);
-  me_pass_allCh->setBinLabel(9 , "MB1/0", 1);
-  me_pass_allCh->setBinLabel(10, "MB2/0", 1);
-  me_pass_allCh->setBinLabel(11, "MB3/0", 1);
-  me_pass_allCh->setBinLabel(12, "MB4/0", 1);
-  me_pass_allCh->setBinLabel(13, "MB1/1", 1);
-  me_pass_allCh->setBinLabel(14, "MB2/1", 1);
-  me_pass_allCh->setBinLabel(15, "MB3/1", 1);
-  me_pass_allCh->setBinLabel(16, "MB4/1", 1);
-  me_pass_allCh->setBinLabel(17, "MB1/2", 1);
-  me_pass_allCh->setBinLabel(18, "MB2/2", 1);
-  me_pass_allCh->setBinLabel(19, "MB3/2", 1);
-  me_pass_allCh->setBinLabel(20, "MB4/2", 1);
+  me_pass_allCh->setBinLabel(1 , "MB1/YB-2", 1);
+  me_pass_allCh->setBinLabel(2 , "MB2/YB-2", 1);
+  me_pass_allCh->setBinLabel(3 , "MB3/YB-2", 1);
+  me_pass_allCh->setBinLabel(4 , "MB4/YB-2", 1);
+  me_pass_allCh->setBinLabel(5 , "MB1/YB-1", 1);
+  me_pass_allCh->setBinLabel(6 , "MB2/YB-1", 1);
+  me_pass_allCh->setBinLabel(7 , "MB3/YB-1", 1);
+  me_pass_allCh->setBinLabel(8 , "MB4/YB-1", 1);
+  me_pass_allCh->setBinLabel(9 , "MB1/YB0", 1);
+  me_pass_allCh->setBinLabel(10, "MB2/YB0", 1);
+  me_pass_allCh->setBinLabel(11, "MB3/YB0", 1);
+  me_pass_allCh->setBinLabel(12, "MB4/YB0", 1);
+  me_pass_allCh->setBinLabel(13, "MB1/YB1", 1);
+  me_pass_allCh->setBinLabel(14, "MB2/YB1", 1);
+  me_pass_allCh->setBinLabel(15, "MB3/YB1", 1);
+  me_pass_allCh->setBinLabel(16, "MB4/YB1", 1);
+  me_pass_allCh->setBinLabel(17, "MB1/YB2", 1);
+  me_pass_allCh->setBinLabel(18, "MB2/YB2", 1);
+  me_pass_allCh->setBinLabel(19, "MB3/YB2", 1);
+  me_pass_allCh->setBinLabel(20, "MB4/YB2", 1);
   me_pass_allCh->setAxisTitle("Number of passing probes", 2);
 
-  me_fail_allCh->setBinLabel(1 , "MB1/-2", 1);
-  me_fail_allCh->setBinLabel(2 , "MB2/-2", 1);
-  me_fail_allCh->setBinLabel(3 , "MB3/-2", 1);
-  me_fail_allCh->setBinLabel(4 , "MB4/-2", 1);
-  me_fail_allCh->setBinLabel(5 , "MB1/-1", 1);
-  me_fail_allCh->setBinLabel(6 , "MB2/-1", 1);
-  me_fail_allCh->setBinLabel(7 , "MB3/-1", 1);
-  me_fail_allCh->setBinLabel(8 , "MB4/-1", 1);
-  me_fail_allCh->setBinLabel(9 , "MB1/0", 1);
-  me_fail_allCh->setBinLabel(10, "MB2/0", 1);
-  me_fail_allCh->setBinLabel(11, "MB3/0", 1);
-  me_fail_allCh->setBinLabel(12, "MB4/0", 1);
-  me_fail_allCh->setBinLabel(13, "MB1/1", 1);
-  me_fail_allCh->setBinLabel(14, "MB2/1", 1);
-  me_fail_allCh->setBinLabel(15, "MB3/1", 1);
-  me_fail_allCh->setBinLabel(16, "MB4/1", 1);
-  me_fail_allCh->setBinLabel(17, "MB1/2", 1);
-  me_fail_allCh->setBinLabel(18, "MB2/2", 1);
-  me_fail_allCh->setBinLabel(19, "MB3/2", 1);
-  me_fail_allCh->setBinLabel(20, "MB4/2", 1);
+  me_fail_allCh->setBinLabel(1 , "MB1/YB-2", 1);
+  me_fail_allCh->setBinLabel(2 , "MB2/YB-2", 1);
+  me_fail_allCh->setBinLabel(3 , "MB3/YB-2", 1);
+  me_fail_allCh->setBinLabel(4 , "MB4/YB-2", 1);
+  me_fail_allCh->setBinLabel(5 , "MB1/YB-1", 1);
+  me_fail_allCh->setBinLabel(6 , "MB2/YB-1", 1);
+  me_fail_allCh->setBinLabel(7 , "MB3/YB-1", 1);
+  me_fail_allCh->setBinLabel(8 , "MB4/YB-1", 1);
+  me_fail_allCh->setBinLabel(9 , "MB1/YB0", 1);
+  me_fail_allCh->setBinLabel(10, "MB2/YB0", 1);
+  me_fail_allCh->setBinLabel(11, "MB3/YB0", 1);
+  me_fail_allCh->setBinLabel(12, "MB4/YB0", 1);
+  me_fail_allCh->setBinLabel(13, "MB1/YB1", 1);
+  me_fail_allCh->setBinLabel(14, "MB2/YB1", 1);
+  me_fail_allCh->setBinLabel(15, "MB3/YB1", 1);
+  me_fail_allCh->setBinLabel(16, "MB4/YB1", 1);
+  me_fail_allCh->setBinLabel(17, "MB1/YB2", 1);
+  me_fail_allCh->setBinLabel(18, "MB2/YB2", 1);
+  me_fail_allCh->setBinLabel(19, "MB3/YB2", 1);
+  me_fail_allCh->setBinLabel(20, "MB4/YB2", 1);
   me_fail_allCh->setAxisTitle("Number of failing probes", 2);
 
-  m_histos[hName] = me;
   m_histos[hName_pass] = me_pass;
   m_histos[hName_fail] = me_fail;
 

@@ -86,10 +86,11 @@ void DTTnPEfficiencyClient::dqmEndJob(DQMStore::IBooker& ibooker, DQMStore::IGet
           //std::cout<<"---------------NUM = "<<num<<"---------------"<<std::endl;
           //std::cout<<"---------------DEN = "<<den<<"---------------"<<std::endl;
           const float eff = num / den;
+          const float eff_error = ((TMath::Sqrt(num)/num) + (TMath::Sqrt(den)/den))*eff;
           //const float eff_error_All = sqrt((effAll + effAll * effAll) / denom);
 
           effHistos[std::string("chamberEff_W") + std::to_string(wheel)]->setBinContent(sec_idx, sta_idx, eff);
-          //effHistos[wheel + 2][0]->setBinError(sec_idx, sta_idx, eff_error_All);
+          effHistos[std::string("chamberEff_W") + std::to_string(wheel)]->setBinError(sec_idx, sta_idx, eff_error);
         }
       }
     }
@@ -102,26 +103,26 @@ void DTTnPEfficiencyClient::bookHistos(DQMStore::IBooker& ibooker, std::string f
   ibooker.setCurrentFolder(topFolder() + folder + "/");
   
   effHistos["chamberEff_allCh"] = ibooker.book1D("chamberEff_allCh","chamberEff_allCh", 20, 1., 15.);
-  effHistos["chamberEff_allCh"]->setBinLabel(1 , "MB1/-2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(2 , "MB2/-2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(3 , "MB3/-2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(4 , "MB4/-2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(5 , "MB1/-1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(6 , "MB2/-1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(7 , "MB3/-1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(8 , "MB4/-1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(9 , "MB1/0", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(10, "MB2/0", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(11, "MB3/0", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(12, "MB4/0", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(13, "MB1/1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(14, "MB2/1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(15, "MB3/1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(16, "MB4/1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(17, "MB1/2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(18, "MB2/2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(19, "MB3/2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(20, "MB4/2", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(1 , "MB1/YB-2", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(2 , "MB2/YB-2", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(3 , "MB3/YB-2", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(4 , "MB4/YB-2", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(5 , "MB1/YB-1", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(6 , "MB2/YB-1", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(7 , "MB3/YB-1", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(8 , "MB4/YB-1", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(9 , "MB1/YB0", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(10, "MB2/YB0", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(11, "MB3/YB0", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(12, "MB4/YB0", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(13, "MB1/YB1", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(14, "MB2/YB1", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(15, "MB3/YB1", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(16, "MB4/YB1", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(17, "MB1/YB2", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(18, "MB2/YB2", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(19, "MB3/YB2", 1);
+  effHistos["chamberEff_allCh"]->setBinLabel(20, "MB4/YB2", 1);
   effHistos["chamberEff_allCh"]->setAxisTitle("Efficiency", 2);
 
   for (int wh = -2; wh <= 2; wh++) {
