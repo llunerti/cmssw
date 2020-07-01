@@ -192,6 +192,16 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
 	  probe_muons_firesIsoTrig.push_back(false);
 	  
 	}
+        if (m_detailedAnalysis)
+        {
+          if(abs(muon.eta()) < 1.2){
+            m_histos.find("probeEta")->second->Fill(muon.eta());
+            m_histos.find("probePhi")->second->Fill(muon.phi());
+            m_histos.find("probeNumberOfMatchedStations")->second->Fill(muon.numberOfMatchedStations());
+          }
+
+          m_histos.find("probePt")->second->Fill(muon.pt());
+        }
 
         for (const auto chambMatch : muon.matches() ) 
           {
@@ -244,8 +254,8 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
     {
       for(unsigned i=0; i<probe_muons.size(); i++)
       {
-        if(!m_tagSelector(probe_muons.at(i)) //&&
-	   /*!probe_muons_firesIsoTrig.at(i)*/) 
+        if(!m_tagSelector(probe_muons.at(i)) &&
+	   !probe_muons_firesIsoTrig.at(i)) 
 	  continue;
 	for(unsigned j=0; j<probe_muons.size(); j++)
 	{
@@ -255,6 +265,9 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
 
 	  int pair_charge_product = probe_muons.at(i).charge()*probe_muons.at(j).charge();
           math::PtEtaPhiMLorentzVector pairLorentzVector = probe_muons.at(i).polarP4() + probe_muons.at(j).polarP4();
+
+          m_histos.find("pairMass")->second->Fill(pairLorentzVector.M());
+
 	  if (pair_charge_product < 0 && (pairLorentzVector.M() > 80. && pairLorentzVector.M() < 100.))
 	  {
 	    std::pair tnp_pair = std::make_pair(probe_muons.at(i),probe_muons.at(j));
@@ -295,29 +308,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
     //is found then fill the histograms
     if (pairFound)
     {
-
-      if (m_detailedAnalysis)
-      {
-        math::PtEtaPhiMLorentzVector tag (tnp_pairs[maxPtPairIdx][0].first.polarP4());
-        math::PtEtaPhiMLorentzVector probe (tnp_pairs[maxPtPairIdx][0].second.polarP4());
-        math::PtEtaPhiMLorentzVector TnpPair = tag + probe;
-        m_histos.find("pairMass")->second->Fill(TnpPair.M());
-
-	if(abs(tnp_pairs[maxPtPairIdx][0].first.eta()) < 1.2){
-          m_histos.find("probeEta")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.eta());
-          m_histos.find("probePhi")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.phi());
-          m_histos.find("probeNumberOfMatchedStations")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.numberOfMatchedStations());
-	}
-
-	if(abs(tnp_pairs[maxPtPairIdx][0].second.eta()) < 1.2){
-          m_histos.find("probeEta")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.eta());
-          m_histos.find("probePhi")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.phi());
-          m_histos.find("probeNumberOfMatchedStations")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.numberOfMatchedStations());
-	}
-
-        m_histos.find("probePt")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.pt());
-        m_histos.find("probePt")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.pt());
-      }
 
       for (unsigned wheelIdx=0; wheelIdx < 5; ++wheelIdx)
       {
