@@ -48,8 +48,10 @@ void DTTnPEfficiencyClient::dqmEndJob(DQMStore::IBooker& ibooker, DQMStore::IGet
     
     if (den != 0.) {
       const float eff = num / den;
+      const float eff_error = ((TMath::Sqrt(num)/num) + (TMath::Sqrt(den)/den))*eff;
     
       effHistos["chamberEff_allCh"]->setBinContent(ch_idx, eff);
+      effHistos["chamberEff_allCh"]->setBinError(ch_idx, eff_error);
     }
   }
 
@@ -83,11 +85,14 @@ void DTTnPEfficiencyClient::dqmEndJob(DQMStore::IBooker& ibooker, DQMStore::IGet
         const float den = nPass + nFail;
 
         if (den != 0.) {
-          //std::cout<<"---------------NUM = "<<num<<"---------------"<<std::endl;
-          //std::cout<<"---------------DEN = "<<den<<"---------------"<<std::endl;
           const float eff = num / den;
           const float eff_error = ((TMath::Sqrt(num)/num) + (TMath::Sqrt(den)/den))*eff;
           //const float eff_error_All = sqrt((effAll + effAll * effAll) / denom);
+
+          //std::cout<<"---------------NUM = "<<num<<"---------------"<<std::endl;
+          //std::cout<<"---------------DEN = "<<den<<"---------------"<<std::endl;
+          //std::cout<<"---------------EFFICIENCY ERROR = "<<eff_error<<"---------------"<<std::endl;
+
 
           effHistos[std::string("chamberEff_W") + std::to_string(wheel)]->setBinContent(sec_idx, sta_idx, eff);
           effHistos[std::string("chamberEff_W") + std::to_string(wheel)]->setBinError(sec_idx, sta_idx, eff_error);
