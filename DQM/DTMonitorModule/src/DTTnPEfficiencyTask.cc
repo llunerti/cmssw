@@ -192,16 +192,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
 	  probe_muons_firesIsoTrig.push_back(false);
 	  
 	}
-        if (m_detailedAnalysis)
-        {
-          if(abs(muon.eta()) < 1.2){
-            m_histos.find("probeEta")->second->Fill(muon.eta());
-            m_histos.find("probePhi")->second->Fill(muon.phi());
-            m_histos.find("probeNumberOfMatchedStations")->second->Fill(muon.numberOfMatchedStations());
-          }
-
-          m_histos.find("probePt")->second->Fill(muon.pt());
-        }
 
         for (const auto chambMatch : muon.matches() ) 
           {
@@ -308,6 +298,22 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
     //is found then fill the histograms
     if (pairFound)
     {
+      if (m_detailedAnalysis)
+      {
+        if(abs(tnp_pairs[maxPtPairIdx][0].first.eta()) < 1.2){
+          m_histos.find("probeEta")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.eta());
+          m_histos.find("probePhi")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.phi());
+          m_histos.find("probeNumberOfMatchedStations")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.numberOfMatchedStations());
+        }
+        if(abs(tnp_pairs[maxPtPairIdx][0].second.eta()) < 1.2){
+          m_histos.find("probeEta")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.eta());
+          m_histos.find("probePhi")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.phi());
+          m_histos.find("probeNumberOfMatchedStations")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.numberOfMatchedStations());
+        }
+      
+        m_histos.find("probePt")->second->Fill(tnp_pairs[maxPtPairIdx][0].first.pt());
+        m_histos.find("probePt")->second->Fill(tnp_pairs[maxPtPairIdx][0].second.pt());
+      }
 
       for (unsigned wheelIdx=0; wheelIdx < 5; ++wheelIdx)
       {
