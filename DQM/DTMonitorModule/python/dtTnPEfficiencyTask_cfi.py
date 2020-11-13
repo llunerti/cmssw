@@ -5,8 +5,8 @@ dtTnPEfficiencyMonitor = DQMEDAnalyzer('DTTnPEfficiencyTask',
                                        # The muon object input tag
                                        inputTagMuons = cms.untracked.InputTag('muons'),
                                        inputTagPrimaryVertices = cms.untracked.InputTag('offlinePrimaryVertices'),
-                                       trigResultsTag = cms.untracked.InputTag("TriggerResults"),
-                                       trigEventTag = cms.untracked.InputTag("TriggerEvent"),
+                                       trigResultsTag = cms.untracked.InputTag("TriggerResults::HLT"),
+                                       trigEventTag = cms.untracked.InputTag("hltTriggerSummaryAOD::HLT"),
                                        # A string-based cut on muon variables
                                        probeCut = cms.untracked.string('isTrackerMuon && (innerTrack.normalizedChi2 < 10) && (innerTrack.hitPattern.numberOfValidPixelHits > 0) && (innerTrack.hitPattern.trackerLayersWithMeasurement > 5) && ((isolationR03.sumPt)/(pt) < 0.1)'),
                                        probeDxyCut = cms.untracked.double(0.2),
@@ -17,8 +17,10 @@ dtTnPEfficiencyMonitor = DQMEDAnalyzer('DTTnPEfficiencyTask',
                                        #  CutBasedIdMediumPrompt = 1UL << 2 
 				       #  CutBasedIdTight = 1UL << 3
                                        tagCut = cms.untracked.string('(selectors & 8) && ((isolationR03.sumPt)/(pt) < 0.05)'),
-                                       trigName = cms.untracked.string("HLT_Mu50_v*"),
-                                       isoTrigName = cms.untracked.string("HLT_IsoMu*"),
+                                       borderCut = cms.untracked.double(-10.),
+                                       lowPairMassCut = cms.untracked.double (80.),
+                                       highPairMassCut = cms.untracked.double (100.),
+                                       trigName = cms.untracked.string("HLT_IsoMu*"),
                                        # If true, enables detailed analysis plots
                                        detailedAnalysis = cms.untracked.bool(True)
 )
