@@ -24,6 +24,7 @@ protected:
   inline std::string topFolder() const { return "DT/10-Segment_TnP/"; };
 private:
   std::map<std::string,MonitorElement*> effHistos;
+  std::vector<std::string> passNfailHistoNames;
 };
 
 #endif

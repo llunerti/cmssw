@@ -3,7 +3,9 @@
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
-DTTnPEfficiencyClient::DTTnPEfficiencyClient (const edm::ParameterSet &pSet) {
+DTTnPEfficiencyClient::DTTnPEfficiencyClient (const edm::ParameterSet &pSet) :
+  passNfailHistoNames(pSet.getUntrackedParameter<std::vector<std::string>>("histoNames"))
+{
   edm::LogVerbatim("DQM|DTMonitorModule|DTTnPEfficiencyClient") << "DTTnPEfficiencyClient: Constructor called";
 };
 
@@ -26,79 +28,106 @@ void DTTnPEfficiencyClient::dqmEndJob(DQMStore::IBooker& ibooker, DQMStore::IGet
 
   std::string outFolder = "Task";
 
-  bookHistos(ibooker,outFolder);
-
+  //bookHistos(ibooker,outFolder);
+  
+  ibooker.setCurrentFolder(topFolder() + outFolder + "/");
   std::string baseFolder = topFolder() + outFolder + "/";
 
-  std::string histoName_pass_allCh = baseFolder + "nPassingProbe_allCh";
-  std::string histoName_fail_allCh = baseFolder + "nFailingProbe_allCh";
-  
-  MonitorElement* me_pass_allCh = igetter.get(histoName_pass_allCh);
-  MonitorElement* me_fail_allCh = igetter.get(histoName_fail_allCh);
 
-  TH1F* h_pass_allCh = me_pass_allCh->getTH1F();
-  TH1F* h_fail_allCh = me_fail_allCh->getTH1F();
-  const int nBin = effHistos["chamberEff_allCh"]->getNbinsX();
-  for(int ch_idx=1; ch_idx<=nBin; ++ch_idx){
-    const float nPass = h_pass_allCh->GetBinContent(ch_idx);
-    const float nFail = h_fail_allCh->GetBinContent(ch_idx);
-    
-    const float num = nPass;
-    const float den = nPass + nFail;
-    
-    if (den != 0.) {
-      const float eff = num / den;
-      const float eff_error = ((TMath::Sqrt(num)/num) + (TMath::Sqrt(den)/den))*eff;
-    
-      effHistos["chamberEff_allCh"]->setBinContent(ch_idx, eff);
-      effHistos["chamberEff_allCh"]->setBinError(ch_idx, eff_error);
-    }
-  }
+  for (auto s : passNfailHistoNames)
+  {
+    std::string passHistoName = s.substr(0,s.find(":"));
+    std::string failHistoName = s.substr(s.find(":")+1,s.length());
 
-  //Loop over the wheels
-  for (int wheel = -2; wheel <= 2; wheel++) {
-    std::string histoName_pass = baseFolder + "nPassingProbePerCh_W" + std::to_string(wheel);
-    std::string histoName_fail = baseFolder + "nFailingProbePerCh_W" + std::to_string(wheel);
-
+    std::string histoName_pass = baseFolder + passHistoName;
+    std::string histoName_fail = baseFolder + failHistoName;
+    
     MonitorElement* me_pass = igetter.get(histoName_pass);
     MonitorElement* me_fail = igetter.get(histoName_fail);
 
-    //get the TH2F
-    if (!me_pass || !(me_pass->getTH2F()) || !me_fail || !(me_fail->getTH2F())) {
+    if (!me_pass || !me_fail ) {
       edm::LogWarning("DTTnPEfficiencyClient") << "Monitor Element not available" << std::endl;
       return;
     }
 
-    TH2F* h_pass = me_pass->getTH2F();
-    TH2F* h_fail = me_fail->getTH2F();
+    //1D histos
+    if((int)me_pass->kind()==DQMNet::DQM_PROP_TYPE_TH1F && (int)me_fail->kind()==DQMNet::DQM_PROP_TYPE_TH1F){
 
-    const int nBinX = effHistos[std::string("chamberEff_W") + std::to_string(wheel)]->getNbinsX();
-    const int nBinY = effHistos[std::string("chamberEff_W") + std::to_string(wheel)]->getNbinsY();
-
-    for (int sec_idx = 1; sec_idx <= nBinX; sec_idx++) {
-      for (int sta_idx = 1; sta_idx <= nBinY; sta_idx++) {
-
-        const float nPass = h_pass->GetBinContent(sec_idx, sta_idx);
-        const float nFail = h_fail->GetBinContent(sec_idx, sta_idx);
-
-        const float num = nPass;
-        const float den = nPass + nFail;
-
-        if (den != 0.) {
-          const float eff = num / den;
-          const float eff_error = ((TMath::Sqrt(num)/num) + (TMath::Sqrt(den)/den))*eff;
-          //const float eff_error_All = sqrt((effAll + effAll * effAll) / denom);
-
-          //std::cout<<"---------------NUM = "<<num<<"---------------"<<std::endl;
-          //std::cout<<"---------------DEN = "<<den<<"---------------"<<std::endl;
-          //std::cout<<"---------------EFFICIENCY ERROR = "<<eff_error<<"---------------"<<std::endl;
-
-
-          effHistos[std::string("chamberEff_W") + std::to_string(wheel)]->setBinContent(sec_idx, sta_idx, eff);
-          effHistos[std::string("chamberEff_W") + std::to_string(wheel)]->setBinError(sec_idx, sta_idx, eff_error);
-        }
+      if (!(me_pass->getTH1F()) || !(me_fail->getTH1F())) {
+        edm::LogWarning("DTTnPEfficiencyClient") << "Monitor Element not available" << std::endl;
+        return;
       }
+
+      TH1F* h1_pass = me_pass->getTH1F();
+      TH1F* h1_fail = me_fail->getTH1F();
+
+      const int nBinX_pass = h1_pass->GetNbinsX();
+      const int nBinX_fail = h1_fail->GetNbinsX();
+
+      if (nBinX_pass!=nBinX_fail){
+        edm::LogWarning("DTTnPEfficiencyClient") << "Histograms with different number of bins: unable to compute the ratio" << std::endl;
+        return;
+      }
+
+      TH1F* h1_num = (TH1F*)h1_pass->Clone();
+
+      h1_pass->Add(h1_fail);
+      TH1F* h1_den = (TH1F*)h1_pass->Clone();
+
+      h1_num->Divide(h1_den);
+      TH1F* h1_ratio = (TH1F*)h1_num->Clone();
+      
+      int f = passHistoName.find("_");
+      int s = passHistoName.find("_",f+1);
+      std::string chName    = passHistoName.substr(0,f);
+      std::string specifier = passHistoName.substr(s+1);
+      std::string effHistoName = chName + "_chamberEff_" + specifier;
+
+      effHistos[effHistoName] = ibooker.book1D(effHistoName,h1_ratio);
+      effHistos[effHistoName]->setTitle(effHistoName);
+      effHistos[effHistoName]->setAxisTitle("Efficiency", 2);
     }
+
+    //2D histos
+    if((int)me_pass->kind()==DQMNet::DQM_PROP_TYPE_TH2F && (int)me_fail->kind()==DQMNet::DQM_PROP_TYPE_TH2F){
+
+      if (!(me_pass->getTH2F()) || !(me_fail->getTH2F())) {
+        edm::LogWarning("DTTnPEfficiencyClient") << "Monitor Element not available: unable to compute the ratio" << std::endl;
+        return;
+      }
+
+      TH2F* h2_pass = me_pass->getTH2F();
+      TH2F* h2_fail = me_fail->getTH2F();
+
+      const int nBinX_pass = h2_pass->GetNbinsX();
+      const int nBinX_fail = h2_fail->GetNbinsX();
+      const int nBinY_pass = h2_pass->GetNbinsY();
+      const int nBinY_fail = h2_fail->GetNbinsY();
+
+      if ((nBinX_pass!=nBinX_fail) || (nBinY_pass!=nBinY_fail)){
+        edm::LogWarning("DTTnPEfficiencyClient") << "Histograms with different number of bins: unable to compute the ratio" << std::endl;
+        return;
+      }
+
+      TH2F* h2_num = (TH2F*)h2_pass->Clone();
+
+      h2_pass->Add(h2_fail);
+      TH2F* h2_den = (TH2F*)h2_pass->Clone();
+
+      h2_num->Divide(h2_den);
+      TH2F* h2_ratio = (TH2F*)h2_num->Clone();
+    
+      int f = passHistoName.find("_");
+      int s = passHistoName.find("_",f+1);
+      std::string chName    = passHistoName.substr(0,f);
+      std::string specifier = passHistoName.substr(s+1);
+      std::string effHistoName = chName + "_chamberEff_" + specifier;
+
+      effHistos[effHistoName] = ibooker.book2D(effHistoName,h2_ratio);
+      effHistos[effHistoName]->setTitle(effHistoName);
+      effHistos[effHistoName]->setAxisTitle("Efficiency", 3);
+    }
+    
   }
 
   return;
@@ -107,38 +136,13 @@ void DTTnPEfficiencyClient::dqmEndJob(DQMStore::IBooker& ibooker, DQMStore::IGet
 void DTTnPEfficiencyClient::bookHistos(DQMStore::IBooker& ibooker, std::string folder) {
   ibooker.setCurrentFolder(topFolder() + folder + "/");
   
-  effHistos["chamberEff_allCh"] = ibooker.book1D("chamberEff_allCh","chamberEff_allCh", 20, 1., 15.);
-  effHistos["chamberEff_allCh"]->setBinLabel(1 , "MB1/YB-2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(2 , "MB2/YB-2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(3 , "MB3/YB-2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(4 , "MB4/YB-2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(5 , "MB1/YB-1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(6 , "MB2/YB-1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(7 , "MB3/YB-1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(8 , "MB4/YB-1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(9 , "MB1/YB0", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(10, "MB2/YB0", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(11, "MB3/YB0", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(12, "MB4/YB0", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(13, "MB1/YB1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(14, "MB2/YB1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(15, "MB3/YB1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(16, "MB4/YB1", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(17, "MB1/YB2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(18, "MB2/YB2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(19, "MB3/YB2", 1);
-  effHistos["chamberEff_allCh"]->setBinLabel(20, "MB4/YB2", 1);
-  effHistos["chamberEff_allCh"]->setAxisTitle("Efficiency", 2);
+  effHistos["DT_chamberEff_allCh"] = ibooker.book1D("DT_chamberEff_allCh","DT_chamberEff_allCh", 20, 1., 15.);
+  effHistos["CSC_chamberEff_allCh"] = ibooker.book2D("CSC_chamberEff_allCh","CSC_chamberEff_allCh", 9, -4., 5., 4, 0.,4.5);
 
   for (int wh = -2; wh <= 2; wh++) {
-    std::string histoName = std::string("chamberEff_W") + std::to_string(wh);
+    std::string histoName = std::string("DT_chamberEff_W") + std::to_string(wh);
 
     effHistos[histoName] = ibooker.book2D(histoName.c_str(),histoName.c_str(), 14, 1., 15., 4, 0., 5.);
-    effHistos[histoName]->setAxisTitle("Sector", 1);
-    effHistos[histoName]->setBinLabel(1, "MB1", 2);
-    effHistos[histoName]->setBinLabel(2, "MB2", 2);
-    effHistos[histoName]->setBinLabel(3, "MB3", 2);
-    effHistos[histoName]->setBinLabel(4, "MB4", 2);
   }
 
   return;
