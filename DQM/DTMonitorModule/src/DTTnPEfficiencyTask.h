@@ -84,13 +84,12 @@ private:
   edm::EDGetTokenT<trigger::TriggerEvent> m_triggerEventToken;
 
   std::string m_trigName;
-  std::string m_isoTrigName;
   HLTConfigProvider m_hltConfig;
 
   bool m_detailedAnalysis;
 
   //Probe selectors
-  StringCutObjectSelector<reco::Candidate,true> m_selector;
+  StringCutObjectSelector<reco::Candidate,true> m_probeSelector;
   double m_dxyCut;
   double m_dzCut;
 
@@ -99,11 +98,12 @@ private:
 
   //Trigger indices
   std::vector<int> m_trigIndices;
-  std::vector<int> m_isoTrigIndices;
 
   std::map<std::string, MonitorElement*> m_histos;
 
-  float m_borderCut;
+  double m_borderCut;
+  double m_lowPairMassCut;
+  double m_highPairMassCut;
 
 };
 
