@@ -65,12 +65,17 @@ protected:
   /// Book wheel granularity histograms
   void bookWheelHistos(DQMStore::IBooker& iBooker, int wheel, std::string folder = "");
 
+  /// Book endcap histograms
+  void bookEndcapHistos(DQMStore::IBooker& iBooker, int stations, std::string folder = "");
+
   /// Return the top folder
   inline std::string topFolder() const { return "DT/10-Segment_TnP/"; };
 
   /// Analyze
   void analyze(const edm::Event& event, const edm::EventSetup& context) override;
   bool hasTrigger(std::vector<int> & trigIndices,const trigger::TriggerObjectCollection & trigObjs,edm::Handle<trigger::TriggerEvent> & trigEvent,const reco::Muon & muon);
+
+  int get_barrel_histo_ycoord(int ring, int station, int sector, int layer, int subsector, int roll);
 
   /// To reset the MEs
 
