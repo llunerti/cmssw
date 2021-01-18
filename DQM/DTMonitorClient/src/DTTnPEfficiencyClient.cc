@@ -33,17 +33,29 @@ void DTTnPEfficiencyClient::dqmEndJob(DQMStore::IBooker& ibooker, DQMStore::IGet
   ibooker.setCurrentFolder(topFolder() + outFolder + "/");
   std::string baseFolder = topFolder() + outFolder + "/";
 
+  TH1::SetDefaultSumw2(kTRUE);
 
   for (auto s : passNfailHistoNames)
   {
+    TH1::SetDefaultSumw2(kTRUE);
+    
     std::string passHistoName = s.substr(0,s.find(":"));
     std::string failHistoName = s.substr(s.find(":")+1,s.length());
+
+    std::cout<<"*******PASS HISTO NAME: "<<passHistoName<<"********"<<std::endl;
+    std::cout<<"*******FAIL HISTO NAME: "<<failHistoName<<"********"<<std::endl;
 
     std::string histoName_pass = baseFolder + passHistoName;
     std::string histoName_fail = baseFolder + failHistoName;
     
     MonitorElement* me_pass = igetter.get(histoName_pass);
     MonitorElement* me_fail = igetter.get(histoName_fail);
+
+    int fir = passHistoName.find("_");
+    int sec = passHistoName.find("_",fir+1);
+    std::string chName    = passHistoName.substr(0,fir);
+    std::string specifier = passHistoName.substr(sec+1);
+    std::string effHistoName = chName + "_chamberEff_" + specifier;
 
     if (!me_pass || !me_fail ) {
       edm::LogWarning("DTTnPEfficiencyClient") << "Monitor Element not available" << std::endl;
@@ -69,20 +81,15 @@ void DTTnPEfficiencyClient::dqmEndJob(DQMStore::IBooker& ibooker, DQMStore::IGet
         return;
       }
 
-      TH1F* h1_num = (TH1F*)h1_pass->Clone();
-
-      h1_pass->Add(h1_fail);
       TH1F* h1_den = (TH1F*)h1_pass->Clone();
+      TH1F* h1_num = (TH1F*)h1_pass->Clone();
+      h1_den->Sumw2();
+      h1_num->Sumw2();
+      h1_den->Add(h1_fail);
 
       h1_num->Divide(h1_den);
       TH1F* h1_ratio = (TH1F*)h1_num->Clone();
       
-      int f = passHistoName.find("_");
-      int s = passHistoName.find("_",f+1);
-      std::string chName    = passHistoName.substr(0,f);
-      std::string specifier = passHistoName.substr(s+1);
-      std::string effHistoName = chName + "_chamberEff_" + specifier;
-
       effHistos[effHistoName] = ibooker.book1D(effHistoName,h1_ratio);
       effHistos[effHistoName]->setTitle(effHistoName);
       effHistos[effHistoName]->setAxisTitle("Efficiency", 2);
@@ -109,19 +116,14 @@ void DTTnPEfficiencyClient::dqmEndJob(DQMStore::IBooker& ibooker, DQMStore::IGet
         return;
       }
 
-      TH2F* h2_num = (TH2F*)h2_pass->Clone();
-
-      h2_pass->Add(h2_fail);
       TH2F* h2_den = (TH2F*)h2_pass->Clone();
+      TH2F* h2_num = (TH2F*)h2_pass->Clone();
+      h2_den->Sumw2();
+      h2_num->Sumw2();
+      h2_den->Add(h2_fail);
 
       h2_num->Divide(h2_den);
       TH2F* h2_ratio = (TH2F*)h2_num->Clone();
-    
-      int f = passHistoName.find("_");
-      int s = passHistoName.find("_",f+1);
-      std::string chName    = passHistoName.substr(0,f);
-      std::string specifier = passHistoName.substr(s+1);
-      std::string effHistoName = chName + "_chamberEff_" + specifier;
 
       effHistos[effHistoName] = ibooker.book2D(effHistoName,h2_ratio);
       effHistos[effHistoName]->setTitle(effHistoName);
