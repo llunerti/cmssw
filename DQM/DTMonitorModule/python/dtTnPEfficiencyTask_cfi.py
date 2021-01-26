@@ -21,6 +21,8 @@ dtTnPEfficiencyMonitor = DQMEDAnalyzer('DTTnPEfficiencyTask',
                                        lowPairMassCut = cms.untracked.double (80.),
                                        highPairMassCut = cms.untracked.double (100.),
                                        trigName = cms.untracked.string("HLT_IsoMu*"),
+                                       #cuts for passing probe definition
+                                       dx_cut = cms.untracked.double(6.),
                                        # If true, enables detailed analysis plots
                                        detailedAnalysis = cms.untracked.bool(True)
 )
