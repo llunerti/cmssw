@@ -109,6 +109,7 @@ private:
   double m_borderCut;
   double m_lowPairMassCut;
   double m_highPairMassCut;
+  double m_dxCut;
 
 };
 

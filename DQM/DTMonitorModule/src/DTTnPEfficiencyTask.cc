@@ -45,7 +45,8 @@ DTTnPEfficiencyTask::DTTnPEfficiencyTask(const edm::ParameterSet& config) :
   m_tagSelector(config.getUntrackedParameter<std::string>("tagCut")),
   m_borderCut(config.getUntrackedParameter<double>("borderCut")),
   m_lowPairMassCut(config.getUntrackedParameter<double>("lowPairMassCut")),
-  m_highPairMassCut(config.getUntrackedParameter<double>("highPairMassCut"))
+  m_highPairMassCut(config.getUntrackedParameter<double>("highPairMassCut")),
+  m_dxCut(config.getUntrackedParameter<double>("dx_cut"))
 {
 
   LogTrace("DTDQM|DTMonitorModule|DTTnPEfficiencyTask")
@@ -692,7 +693,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
             (DT_matchPatt & (1<<(sta-1))) !=DT_matchPatt && //avoids matching with the station under consideration only
             dx > 0.)
         {
-          if (dx < 10.)
+          if (dx < m_dxCut)
           {
             std::string hName = std::string("DT_nPassingProbePerCh_W") + std::to_string(wh);  
             m_histos.find(hName)->second->Fill(sec, sta);
@@ -724,7 +725,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
             (CSC_matchPatt & (1<<(sta-1))) !=CSC_matchPatt && //avoids matching with the station under consideration only
             dx > 0.)
         {
-          if (dx < 10.)
+          if (dx < m_dxCut)
           {
             m_histos.find("CSC_nPassingProbe_allCh")->second->Fill(zendcap*sta, ring);
             m_histos.find("CSC_nPassingProbe_allCh_1D")->second->Fill(zendcap*sta);
@@ -757,7 +758,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
         if ((RPC_matchPatt & (1<<(sta-1))) != 0 && //avoids 0 station matching
             dx > 0.)
         {
-          if (dx < 10.)
+          if (dx < m_dxCut)
           {
 	    if (region == 0){
 	      int barrel_histo_xcoord = sec;
@@ -845,7 +846,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
               (DT_matchPatt & (1<<(sta-1))) !=DT_matchPatt && //avoids matching with the station under consideration only
               dx > 0.)
           {
-            if (dx < 10.)
+            if (dx < m_dxCut)
             {
               std::string hName = std::string("DT_nPassingProbePerCh_W") + std::to_string(wh);  
               m_histos.find(hName)->second->Fill(sec, sta);
@@ -875,7 +876,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
               (CSC_matchPatt & (1<<(sta-1))) !=CSC_matchPatt && //avoids matching with the station under consideration only
               dx > 0.)
           {
-            if (dx < 10.)
+            if (dx < m_dxCut)
             {
               m_histos.find("CSC_nPassingProbe_allCh")->second->Fill(zendcap*sta, ring);
               m_histos.find("CSC_nPassingProbe_allCh_1D")->second->Fill(zendcap*sta);
@@ -907,7 +908,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
           if ((RPC_matchPatt & (1<<(sta-1))) != 0 && //avoids 0 station matching
               dx > 0.)
           {
-            if (dx < 10.)
+            if (dx < m_dxCut)
             {
               if (region == 0){
 	        int barrel_histo_xcoord = sec;
