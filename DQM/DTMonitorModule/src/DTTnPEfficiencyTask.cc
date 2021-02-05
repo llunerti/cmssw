@@ -30,6 +30,7 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
+#include <tuple>
 
 DTTnPEfficiencyTask::DTTnPEfficiencyTask(const edm::ParameterSet& config) : 
   m_nEvents(0),
@@ -309,8 +310,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
 {
   ++m_nEvents;
 
-  bool pairFound = false;
-
   edm::Handle<reco::MuonCollection> muons;
   event.getByToken(m_muToken, muons);
 
@@ -324,655 +323,413 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
   edm::Handle<trigger::TriggerEvent> triggerEvent;
   event.getByToken(m_triggerEventToken, triggerEvent);
 
-  reco::Muon dummy_muon {};
-
-  std::vector<reco::Muon> tag_muons;
-  std::vector<uint8_t> tag_muons_DT_stationMatching;
-  std::vector<uint8_t> tag_muons_CSC_stationMatching;
-  std::vector<uint8_t> tag_muons_RPC_stationMatching;
-
-  std::vector<reco::Muon> probe_muons;
-  std::vector<uint8_t> probe_muons_DT_stationMatching;
-  std::vector<uint8_t> probe_muons_CSC_stationMatching;
-  std::vector<uint8_t> probe_muons_RPC_stationMatching;
-  std::vector<bool> probe_muons_firesIsoTrig;
-  bool probeFiresTrig = false;
-
-
-  std::vector<std::vector<std::array<int,3>>> probe_muons_DT_WhSecSta;
-  std::vector<std::vector<std::array<int,3>>> tag_muons_DT_WhSecSta;
-  std::vector<std::vector<float>> probe_muons_DT_dx;
-  std::vector<std::vector<float>> tag_muons_DT_dx;
-
-  std::vector<std::array<int,3>> dummy_DT_WhSecSta {{{-999,-999,-999}}};
-  std::vector<std::array<int,3>> dummy_CSC_ZStaRing {{{-999,-999,-999}}};
-  std::vector<std::array<int,7>> dummy_RPC_ReRiStSeLaSuRo {{{-999,-999,-999,-999,-999,-999,-999}}};
-  std::vector<float> dummy_dx {{999.}};
-
-  std::vector<std::vector<std::array<int,3>>> probe_muons_CSC_ZStaRing;
-  std::vector<std::vector<std::array<int,3>>> tag_muons_CSC_ZStaRing;
-  std::vector<std::vector<float>> probe_muons_CSC_dx;
-  std::vector<std::vector<float>> tag_muons_CSC_dx;
-
-  std::vector<std::vector<std::array<int,7>>> probe_muons_RPC_ReRiStSeLaSuRo;
-  std::vector<std::vector<std::array<int,7>>> tag_muons_RPC_ReRiStSeLaSuRo;
-  std::vector<std::vector<float>> probe_muons_RPC_dx;
-  std::vector<std::vector<float>> tag_muons_RPC_dx;
-
-  //Selected tnp pair 
-  std::pair<reco::Muon,reco::Muon> tnpPair_maxPt;
-  std::pair<uint8_t,uint8_t> tnpPair_DT_stationMatching_maxPt;
-  std::pair<uint8_t,uint8_t> tnpPair_CSC_stationMatching_maxPt;
-  std::pair<uint8_t,uint8_t> tnpPair_RPC_stationMatching_maxPt;
-  std::pair<std::vector<std::array<int,3>>,std::vector<std::array<int,3>>> tnpPair_DT_WhSecSta_maxPt;
-  std::pair<std::vector<std::array<int,3>>,std::vector<std::array<int,3>>> tnpPair_CSC_ZStaRing_maxPt;
-  std::pair<std::vector<std::array<int,7>>,std::vector<std::array<int,7>>> tnpPair_RPC_ReRiStSeLaSuRo_maxPt;
-  std::pair<std::vector<float>,std::vector<float>> tnpPair_DT_dx_maxPt;
-  std::pair<std::vector<float>,std::vector<float>> tnpPair_CSC_dx_maxPt;
-  std::pair<std::vector<float>,std::vector<float>> tnpPair_RPC_dx_maxPt;
+  //DT variables
+  std::vector<std::vector<int>> probe_coll_DT_wh;
+  std::vector<std::vector<int>> probe_coll_DT_sec;
+  std::vector<std::vector<int>> probe_coll_DT_sta;
+  std::vector<std::vector<float>> probe_coll_DT_dx;
+  std::vector<uint8_t> probe_coll_DT_staMatch;
+  //CSC variables
+  std::vector<std::vector<int>> probe_coll_CSC_zend;
+  std::vector<std::vector<int>> probe_coll_CSC_ring;
+  std::vector<std::vector<int>> probe_coll_CSC_sta;
+  std::vector<std::vector<float>> probe_coll_CSC_dx;
+  std::vector<uint8_t> probe_coll_CSC_staMatch;
+  //RPC variables
+  std::vector<std::vector<int>> probe_coll_RPC_region;
+  std::vector<std::vector<int>> probe_coll_RPC_ring;
+  std::vector<std::vector<int>> probe_coll_RPC_sta;
+  std::vector<std::vector<int>> probe_coll_RPC_sec;
+  std::vector<std::vector<int>> probe_coll_RPC_lay;
+  std::vector<std::vector<int>> probe_coll_RPC_sub;
+  std::vector<std::vector<int>> probe_coll_RPC_roll;
+  std::vector<std::vector<float>> probe_coll_RPC_dx;
+  std::vector<uint8_t> probe_coll_RPC_staMatch;
+  //common tnp variables
+  std::vector<unsigned> tag_indices;
+  std::vector<unsigned> preSel_probe_indices;
+  std::vector<unsigned> probe_indices;
 
   if (muons.isValid() && vtxs.isValid()) 
   {
-    for (const auto & muon : (*muons)) 
-      {
-        bool isProbe = false;
-        bool isTag = false;
-	bool trigMatch = false;
-	uint8_t DT_stationMatching = 0;
-	uint8_t CSC_stationMatching = 0;
-	uint8_t RPC_stationMatching = 0;
+    //Is there a better way to initialize two different type variables?
+    for (auto[muon,muonColl_index] = std::tuple{std::vector<reco::Muon>::const_iterator{(*muons).begin()},0}; muon!=(*muons).end(); ++muon, ++muonColl_index){
 
-        std::vector<std::array<int,3>> probe_DT_WhSecSta;
-        std::vector<std::array<int,3>> tag_DT_WhSecSta;
-        std::vector<float> probe_DT_dx;
-        std::vector<float> tag_DT_dx;
-
-        std::vector<std::array<int,3>> probe_CSC_ZStaRing;
-        std::vector<std::array<int,3>> tag_CSC_ZStaRing;
-        std::vector<float> probe_CSC_dx;
-        std::vector<float> tag_CSC_dx;
-
-        std::vector<std::array<int,7>> probe_RPC_ReRiStSeLaSuRo;
-        std::vector<std::array<int,7>> tag_RPC_ReRiStSeLaSuRo;
-        std::vector<float> probe_RPC_dx;
-        std::vector<float> tag_RPC_dx;
-
-        //Getting trigger infos for tag selection
-	if(triggerResults.isValid() && triggerEvent.isValid())
-	{
-	  const trigger::TriggerObjectCollection trigObjColl = triggerEvent->getObjects();
-	  trigMatch = hasTrigger(m_trigIndices,trigObjColl,triggerEvent,muon);
-	}
-
-        
-	//Probe selection
-        if (m_probeSelector(muon) &&
-	    (fabs(muon.muonBestTrack()->dxy(vertex.position())) < m_dxyCut) &&
-	    (fabs(muon.muonBestTrack()->dz(vertex.position()))  < m_dzCut))
-	{
-	  isProbe = true;
-          probe_muons.push_back(muon);
-	  probe_muons_firesIsoTrig.push_back(trigMatch);
-	}
-        else
-	{
-	  probe_muons.push_back(dummy_muon);
-	  probe_muons_DT_stationMatching.push_back(DT_stationMatching);
-	  probe_muons_DT_WhSecSta.push_back(dummy_DT_WhSecSta);
-          probe_muons_DT_dx.push_back(dummy_dx);
-
-	  probe_muons_CSC_stationMatching.push_back(CSC_stationMatching);
-	  probe_muons_CSC_ZStaRing.push_back(dummy_CSC_ZStaRing);
-          probe_muons_CSC_dx.push_back(dummy_dx);
-
-	  probe_muons_RPC_stationMatching.push_back(RPC_stationMatching);
-	  probe_muons_RPC_ReRiStSeLaSuRo.push_back(dummy_RPC_ReRiStSeLaSuRo);
-          probe_muons_RPC_dx.push_back(dummy_dx);
-
-	  probe_muons_firesIsoTrig.push_back(false);
-	}
-
-        //Tag selection
-        if (m_tagSelector(muon) &&
-	    trigMatch)
-	{
-	  isTag = true;
-          tag_muons.push_back(muon);
-	}
-	else
-	{
-	  tag_muons.push_back(dummy_muon);
-	  tag_muons_DT_stationMatching.push_back(DT_stationMatching);
-	  tag_muons_DT_WhSecSta.push_back(dummy_DT_WhSecSta);
-          tag_muons_DT_dx.push_back(dummy_dx);
-
-	  tag_muons_CSC_stationMatching.push_back(CSC_stationMatching);
-	  tag_muons_CSC_ZStaRing.push_back(dummy_CSC_ZStaRing);
-          tag_muons_CSC_dx.push_back(dummy_dx);
-
-	  tag_muons_RPC_stationMatching.push_back(RPC_stationMatching);
-	  tag_muons_RPC_ReRiStSeLaSuRo.push_back(dummy_RPC_ReRiStSeLaSuRo);
-          tag_muons_RPC_dx.push_back(dummy_dx);
-	}
-
-	if (!isProbe && !isTag) continue;
-
-        for (const auto chambMatch : muon.matches() ) 
-          {
-            // look in DTs
-            if (chambMatch.detector() == MuonSubdetId::DT) 
-	    {
-              if (chambMatch.edgeX < m_borderCut && 
-                  chambMatch.edgeY < m_borderCut)
-                {
-                  DTChamberId chId(chambMatch.id.rawId());
-
-                  int wheel   = chId.wheel();
-                  int sector  = chId.sector();
-                  int station = chId.station();
-
-	          reco::MuonSegmentMatch closest_matchedSegment;
-                  double smallestDistance = 999.;
-	          for (auto & seg : chambMatch.segmentMatches)
-	          {
-                    if ((chambMatch.x - seg.x) < smallestDistance){
-	              smallestDistance = (chambMatch.x - seg.x);
-	              closest_matchedSegment = seg;
-	            }
-	          }
-
-	          DT_stationMatching = DT_stationMatching | (1 << (station-1));
-
-	          if (isProbe){
-                    probe_DT_WhSecSta.push_back({{wheel,sector,station}});
-                    probe_DT_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
-	          }
-
-	          if (isTag){
-                    tag_DT_WhSecSta.push_back({{wheel,sector,station}});
-                    tag_DT_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
-	          }
-
-                }  
-	      }
-
-            // look in CSCs
-            else if (chambMatch.detector() == MuonSubdetId::CSC)
-	    {
-              if (chambMatch.edgeX < m_borderCut && 
-                  chambMatch.edgeY < m_borderCut)
-                {
-                  CSCDetId chId(chambMatch.id.rawId());
-
-                  int zendcap = chId.zendcap();
-                  int ring    = chId.ring();
-                  int station = chId.station();
-
-	          reco::MuonSegmentMatch closest_matchedSegment;
-                  double smallestDistance = 999.;
-	          for (auto & seg : chambMatch.segmentMatches)
-	          {
-                    if ((chambMatch.x - seg.x) < smallestDistance){
-	              smallestDistance = (chambMatch.x - seg.x);
-	              closest_matchedSegment = seg;
-	            }
-	          }
-
-	          CSC_stationMatching = CSC_stationMatching | (1 << (station-1));
-
-                
-	          if (isProbe){
-                    probe_CSC_ZStaRing.push_back({{zendcap,station,ring}});
-                    probe_CSC_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
-	          }
-
-	          if (isTag){
-                    tag_CSC_ZStaRing.push_back({{zendcap,station,ring}});
-                    tag_CSC_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
-	          }
-
-              }  
-	    }
-
-            // look in RPCs
-            else if (chambMatch.detector() == MuonSubdetId::RPC)
-	    {
-              if (chambMatch.edgeX < m_borderCut && 
-                  chambMatch.edgeY < m_borderCut)
-                {
-                  RPCDetId chId(chambMatch.id.rawId());
-
-                  int region    = chId.region(); // barrel if 0, endcap if -/+ 1
-                  int ring      = chId.ring(); // means wheel in the barrel and ring in the endcap
-                  int station   = chId.station();
-                  int sector    = chId.sector();
-                  int subsector = chId.subsector();
-                  int layer     = chId.layer();
-                  int roll      = chId.roll();
-
-
-	          reco::MuonRPCHitMatch closest_matchedSegment;
-                  double smallestDistance = 999.;
-	          for (auto & seg : chambMatch.rpcMatches)
-	          {
-                    if ((chambMatch.x - seg.x) < smallestDistance){
-	              smallestDistance = (chambMatch.x - seg.x);
-	              closest_matchedSegment = seg;
-	            }
-	          }
-
-	          RPC_stationMatching = RPC_stationMatching | (1 << (station-1));
-
- 
-	          if (isProbe){
-                    probe_RPC_ReRiStSeLaSuRo.push_back({{region,ring,station,sector,layer,subsector,roll}});
-                    probe_RPC_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
-	          }
-
-	          if (isTag){
-                    tag_RPC_ReRiStSeLaSuRo.push_back({{region,ring,station,sector,layer,subsector,roll}});
-                    tag_RPC_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
-	          }
-                }  
-	      }
-	      else continue;
-
-          }//loop over chamber matches
-
-	if (isProbe){
-	  probe_muons_DT_stationMatching.push_back(DT_stationMatching);
-          probe_muons_DT_WhSecSta.push_back(probe_DT_WhSecSta);
-          probe_muons_DT_dx.push_back(probe_DT_dx);
-
-	  probe_muons_CSC_stationMatching.push_back(CSC_stationMatching);
-          probe_muons_CSC_ZStaRing.push_back(probe_CSC_ZStaRing);
-          probe_muons_CSC_dx.push_back(probe_CSC_dx);
-
-	  probe_muons_RPC_stationMatching.push_back(RPC_stationMatching);
-          probe_muons_RPC_ReRiStSeLaSuRo.push_back(probe_RPC_ReRiStSeLaSuRo);
-          probe_muons_RPC_dx.push_back(probe_RPC_dx);
-	}
-	if (isTag){
-	  tag_muons_DT_stationMatching.push_back(DT_stationMatching);
-          tag_muons_DT_WhSecSta.push_back(tag_DT_WhSecSta);
-          tag_muons_DT_dx.push_back(tag_DT_dx);
-
-	  tag_muons_CSC_stationMatching.push_back(CSC_stationMatching);
-          tag_muons_CSC_ZStaRing.push_back(tag_CSC_ZStaRing);
-          tag_muons_CSC_dx.push_back(tag_CSC_dx);
-
-	  tag_muons_RPC_stationMatching.push_back(RPC_stationMatching);
-          tag_muons_RPC_ReRiStSeLaSuRo.push_back(tag_RPC_ReRiStSeLaSuRo);
-          tag_muons_RPC_dx.push_back(tag_RPC_dx);
-	}
+      bool trigMatch = false;
       
-      }//loop over muons
-    }
-
-    double pairPtMax = -999.;
-
-    if (probe_muons.size()>0 && tag_muons.size()>0)
-    {
-      for (unsigned i=0; i<tag_muons.size(); ++i)
+      //Getting trigger infos for tag selection
+      if(triggerResults.isValid() && triggerEvent.isValid())
       {
-        //Checking if tag muon is a dummy muon
-        if (tag_muons.at(i).pt() < 0.001 && tag_muons.at(i).eta() < 0.001 && tag_muons.at(i).phi() < 0.001)
-	  continue;
-
-        for (unsigned j=0; j<probe_muons.size(); ++j)
-        {
-	  //Avoiding tag and probe to be the same object
-          if (i==j) 
-	    continue;
-
-          //Checking if probe muon is a dummy muon
-          if (probe_muons.at(j).pt() < 0.001 && probe_muons.at(j).eta() < 0.001 && probe_muons.at(j).phi() < 0.001)
-	    continue;
-
-	  int pair_charge_product = tag_muons.at(i).charge()*probe_muons.at(j).charge();
-          math::PtEtaPhiMLorentzVector pairLorentzVector = tag_muons.at(i).polarP4() + probe_muons.at(j).polarP4();
-
-	  //Fill the invariant mass plot for all pairs
-	  if (pair_charge_product < 0) m_histos.find("pairMass")->second->Fill(pairLorentzVector.M());
-
-          //If more than a tag+probe pair is found the highest pt one is selected
-	  if (pair_charge_product < 0 && (pairLorentzVector.M() > m_lowPairMassCut && pairLorentzVector.M() < m_highPairMassCut) && pairLorentzVector.Pt()>pairPtMax)
-	  {
-            pairFound = true;
-
-            pairPtMax = pairLorentzVector.Pt();
-	    tnpPair_maxPt                     = std::make_pair(tag_muons.at(i),probe_muons.at(j));
-            tnpPair_DT_stationMatching_maxPt  = std::make_pair(tag_muons_DT_stationMatching.at(i),probe_muons_DT_stationMatching.at(j));
-            tnpPair_CSC_stationMatching_maxPt = std::make_pair(tag_muons_CSC_stationMatching.at(i),probe_muons_CSC_stationMatching.at(j));
-            tnpPair_RPC_stationMatching_maxPt = std::make_pair(tag_muons_RPC_stationMatching.at(i),probe_muons_RPC_stationMatching.at(j));
-
-            probeFiresTrig = probe_muons_firesIsoTrig.at(j);
-
-	    tnpPair_DT_WhSecSta_maxPt    = std::make_pair(tag_muons_DT_WhSecSta.at(i),probe_muons_DT_WhSecSta.at(j));
-	    tnpPair_DT_dx_maxPt          = std::make_pair(tag_muons_DT_dx.at(i),probe_muons_DT_dx.at(j));
-
-	    tnpPair_CSC_ZStaRing_maxPt    = std::make_pair(tag_muons_CSC_ZStaRing.at(i),probe_muons_CSC_ZStaRing.at(j));
-	    tnpPair_CSC_dx_maxPt          = std::make_pair(tag_muons_CSC_dx.at(i),probe_muons_CSC_dx.at(j));
-
-	    tnpPair_RPC_ReRiStSeLaSuRo_maxPt = std::make_pair(tag_muons_RPC_ReRiStSeLaSuRo.at(i),probe_muons_RPC_ReRiStSeLaSuRo.at(j));
-	    tnpPair_RPC_dx_maxPt             = std::make_pair(tag_muons_RPC_dx.at(i),probe_muons_RPC_dx.at(j));
-	  }
-        
-        }
-        
+        const trigger::TriggerObjectCollection trigObjColl = triggerEvent->getObjects();
+        trigMatch = hasTrigger(m_trigIndices,trigObjColl,triggerEvent,*muon);
+      }
+      
+      //Probe selection
+      if (m_probeSelector(*muon) &&
+          (std::abs(muon->muonBestTrack()->dxy(vertex.position())) < m_dxyCut) &&
+          (std::abs(muon->muonBestTrack()->dz(vertex.position()))  < m_dzCut))
+      {
+        preSel_probe_indices.push_back(muonColl_index);
+      }
+      //Tag selection
+      if (m_tagSelector(*muon) &&
+          trigMatch)
+      {
+        tag_indices.push_back(muonColl_index);
       }
 
+    }//loop over muons
+  }
+
+    //Probe selection
+    for(const auto i_tag : tag_indices){
+      reco::Muon tag = (*muons).at(i_tag);
+      float pt_max = 0.;
+      int max_pt_idx;
+      bool pair_found = false;
+
+      for(const auto i_probe : preSel_probe_indices){
+        reco::Muon preSel_probe = (*muons).at(i_probe);
+	float tnp_dR = deltaR(tag, preSel_probe);
+	float tnp_dPt = std::abs(tag.pt() - preSel_probe.pt());
+
+	if (tnp_dR<0.01 && tnp_dPt<0.01) continue;
+
+	int pair_charge_product = tag.charge()*preSel_probe.charge();
+        float pair_mass = (tag.polarP4()+preSel_probe.polarP4()).M();
+
+	//check if tag+probe pair is compatible with Z decay
+	if(pair_charge_product>0) continue;
+	m_histos.find("pairMass")->second->Fill(pair_mass);
+
+	if(pair_mass<m_lowPairMassCut || pair_mass>m_highPairMassCut) continue;
+
+        float pair_pt = (tag.polarP4()+preSel_probe.polarP4()).Pt();
+	if (pair_pt > pt_max){
+	  pair_found = true;
+	  pt_max = pair_pt;
+	  max_pt_idx = i_probe;
+	}
+      }
+      if (pair_found){
+        probe_indices.push_back(max_pt_idx);
+      }
     }
 
-    if (pairFound)
-    {
-      //1) test the combination tag + probe
- 
+    //Fill probe dx + subdetector coordinates
+    for (const auto i : probe_indices){
+      //DT variables
+      std::vector<int> probe_DT_wh;
+      std::vector<int> probe_DT_sec;
+      std::vector<int> probe_DT_sta;
+      std::vector<float> probe_DT_dx;
+      uint8_t DT_stationMatching = 0;
+      //CSC variables
+      std::vector<int> probe_CSC_zend;
+      std::vector<int> probe_CSC_ring;
+      std::vector<int> probe_CSC_sta;
+      std::vector<float> probe_CSC_dx;
+      uint8_t CSC_stationMatching = 0;
+      //RPC variables
+      std::vector<int> probe_RPC_region;
+      std::vector<int> probe_RPC_ring;
+      std::vector<int> probe_RPC_sta;
+      std::vector<int> probe_RPC_sec;
+      std::vector<int> probe_RPC_lay;
+      std::vector<int> probe_RPC_sub;
+      std::vector<int> probe_RPC_roll;
+      std::vector<float> probe_RPC_dx;
+      uint8_t RPC_stationMatching = 0;
+
       //Fill detailed plots
       if (m_detailedAnalysis)
       {
-        m_histos.find("probeEta")->second->Fill(tnpPair_maxPt.second.eta());
-        m_histos.find("probePhi")->second->Fill(tnpPair_maxPt.second.phi());
-        m_histos.find("probeNumberOfMatchedStations")->second->Fill(tnpPair_maxPt.second.numberOfMatchedStations());
-        m_histos.find("probePt")->second->Fill(tnpPair_maxPt.second.pt());
+        m_histos.find("probeEta")->second->Fill((*muons).at(i).eta());
+        m_histos.find("probePhi")->second->Fill((*muons).at(i).phi());
+        m_histos.find("probeNumberOfMatchedStations")->second->Fill((*muons).at(i).numberOfMatchedStations());
+        m_histos.find("probePt")->second->Fill((*muons).at(i).pt());
       }
-      
- 
-      //Fill DT numerator and denominator plots
-      uint8_t DT_matchPatt = tnpPair_DT_stationMatching_maxPt.second;
 
-      for(unsigned i = 0 ; i < tnpPair_DT_WhSecSta_maxPt.second.size(); ++i)
-      {
-        int wh  = tnpPair_DT_WhSecSta_maxPt.second.at(i)[0];
-        int sec = tnpPair_DT_WhSecSta_maxPt.second.at(i)[1];
-        int sta = tnpPair_DT_WhSecSta_maxPt.second.at(i)[2];
+      for (const auto chambMatch : (*muons).at(i).matches()){
+        // look in DTs
+        if (chambMatch.detector() == MuonSubdetId::DT){
 
-	float dx = tnpPair_DT_dx_maxPt.second.at(i);
+          if (chambMatch.edgeX < m_borderCut && 
+              chambMatch.edgeY < m_borderCut){
 
-        if ((DT_matchPatt & (1<<(sta-1))) != 0 && //avoids 0 station matching
-            (DT_matchPatt & (1<<(sta-1))) !=DT_matchPatt && //avoids matching with the station under consideration only
-            dx > 0.)
+            DTChamberId chId(chambMatch.id.rawId());
+
+            int wheel   = chId.wheel();
+            int sector  = chId.sector();
+            int station = chId.station();
+
+            reco::MuonSegmentMatch closest_matchedSegment;
+            double smallestDx = 999.;
+
+            for (auto & seg : chambMatch.segmentMatches)
+            {
+              float dx = std::abs(chambMatch.x - seg.x);
+              if (dx < smallestDx){
+                smallestDx = dx;
+                closest_matchedSegment = seg;
+              }
+            }
+
+            DT_stationMatching = DT_stationMatching | (1 << (station-1));
+
+            probe_DT_wh.push_back(wheel);
+            probe_DT_sec.push_back(sector);
+            probe_DT_sta.push_back(station);
+            probe_DT_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
+              
+          }  
+        }
+
+        // look in CSCs
+        else if (chambMatch.detector() == MuonSubdetId::CSC)
+	{
+          if (chambMatch.edgeX < m_borderCut && 
+              chambMatch.edgeY < m_borderCut){
+
+            CSCDetId chId(chambMatch.id.rawId());
+
+            int zendcap = chId.zendcap();
+            int ring    = chId.ring();
+            int station = chId.station();
+
+	    reco::MuonSegmentMatch closest_matchedSegment;
+            double smallestDx = 999.;
+	    for (auto & seg : chambMatch.segmentMatches)
+	    {
+	      float dx = std::abs(chambMatch.x - seg.x) ;
+              if (dx < smallestDx){
+	        smallestDx = dx;
+	        closest_matchedSegment = seg;
+	      }
+	    }
+
+	    CSC_stationMatching = CSC_stationMatching | (1 << (station-1));
+
+            probe_CSC_zend.push_back(zendcap);
+            probe_CSC_ring.push_back(ring);
+            probe_CSC_sta.push_back(station);
+            probe_CSC_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
+          }  
+	}
+
+        // look in RPCs
+        else if (chambMatch.detector() == MuonSubdetId::RPC)
+	{
+          if (chambMatch.edgeX < m_borderCut && 
+              chambMatch.edgeY < m_borderCut){
+
+            RPCDetId chId(chambMatch.id.rawId());
+
+            int region    = chId.region(); // barrel if 0, endcap if -/+ 1
+            int ring      = chId.ring(); // means wheel in the barrel and ring in the endcap
+            int station   = chId.station();
+            int sector    = chId.sector();
+            int subsector = chId.subsector();
+            int layer     = chId.layer();
+            int roll      = chId.roll();
+
+	    reco::MuonRPCHitMatch closest_matchedSegment;
+            double smallestDx = 999.;
+	    for (auto & seg : chambMatch.rpcMatches)
+	    {
+	      float dx = std::abs(chambMatch.x - seg.x);
+
+              if (dx < smallestDx){
+	        smallestDx = dx;
+	        closest_matchedSegment = seg;
+	      }
+	    }
+
+	    RPC_stationMatching = RPC_stationMatching | (1 << (station-1));
+
+            probe_RPC_region.push_back(region);
+            probe_RPC_ring.push_back(ring);
+            probe_RPC_sta.push_back(station);
+            probe_RPC_sec.push_back(sector);
+            probe_RPC_lay.push_back(layer);
+            probe_RPC_sub.push_back(subsector);
+            probe_RPC_roll.push_back(roll);
+            probe_RPC_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
+          }  
+	}
+	else continue;
+      }//loop over chamber matches
+
+      //Fill DT variables
+      probe_coll_DT_wh.push_back(probe_DT_wh);
+      probe_coll_DT_sec.push_back(probe_DT_sec);
+      probe_coll_DT_sta.push_back(probe_DT_sta);
+      probe_coll_DT_dx.push_back(probe_DT_dx);
+      probe_coll_DT_staMatch.push_back(DT_stationMatching);
+      //Fill CSC variables
+      probe_coll_CSC_zend.push_back(probe_CSC_zend);
+      probe_coll_CSC_ring.push_back(probe_CSC_ring);
+      probe_coll_CSC_sta.push_back(probe_CSC_sta);
+      probe_coll_CSC_dx.push_back(probe_CSC_dx);
+      probe_coll_CSC_staMatch.push_back(CSC_stationMatching);
+      //Fill RPC variables
+      probe_coll_RPC_region.push_back(probe_RPC_region);
+      probe_coll_RPC_ring.push_back(probe_RPC_ring);
+      probe_coll_RPC_sta.push_back(probe_RPC_sta);
+      probe_coll_RPC_sec.push_back(probe_RPC_sec);
+      probe_coll_RPC_lay.push_back(probe_RPC_lay);
+      probe_coll_RPC_sub.push_back(probe_RPC_sub);
+      probe_coll_RPC_roll.push_back(probe_RPC_roll);
+      probe_coll_RPC_dx.push_back(probe_RPC_dx);
+      probe_coll_RPC_staMatch.push_back(RPC_stationMatching);
+    }//loop over probe collection
+
+    
+    //There should be no need to check that probe_indices
+    //has the same size of probe_coll_DT*,probe_coll_CSC* 
+    //and probe_coll_RPC* vectors since they are filled 
+    //at each iteration over probe_indices
+
+    //Loop over probes
+    for(unsigned i=0; i<probe_indices.size(); ++i){
+      uint8_t DT_matchPatt = probe_coll_DT_staMatch.at(i);
+      uint8_t CSC_matchPatt = probe_coll_CSC_staMatch.at(i);
+      uint8_t RPC_matchPatt = probe_coll_RPC_staMatch.at(i);
+
+      //Loop over DT matches
+      unsigned nDT_matches = probe_coll_DT_wh.at(i).size();
+      for(unsigned j=0; j<nDT_matches; ++j){
+        //DT variables
+        int DT_wheel   = probe_coll_DT_wh.at(i).at(j);
+        int DT_station = probe_coll_DT_sta.at(i).at(j);
+        int DT_sector  = probe_coll_DT_sec.at(i).at(j);
+        float DT_dx    = probe_coll_DT_dx.at(i).at(j);
+        
+        //Fill DT plots
+        if ((DT_matchPatt & (1<<(DT_station-1))) != 0 && //avoids 0 station matching
+            (DT_matchPatt & (1<<(DT_station-1))) !=DT_matchPatt && //avoids matching with the station under consideration only
+            DT_dx > 0.)
         {
-          if (dx < m_dxCut)
+          if (DT_dx < m_dxCut)
           {
-            std::string hName = std::string("DT_nPassingProbePerCh_W") + std::to_string(wh);  
-            m_histos.find(hName)->second->Fill(sec, sta);
-            m_histos.find("DT_nPassingProbe_allCh")->second->Fill((sta) + 4*(wh+2));
+            std::string hName = std::string("DT_nPassingProbePerCh_W") + std::to_string(DT_wheel);  
+            m_histos.find(hName)->second->Fill(DT_sector, DT_station);
+            m_histos.find("DT_nPassingProbe_allCh")->second->Fill((DT_station) + 4*(DT_wheel+2));
           }
           else
           {
-            std::string hName = std::string("DT_nFailingProbePerCh_W") + std::to_string(wh);  
-            m_histos.find(hName)->second->Fill(sec, sta);
-            m_histos.find("DT_nFailingProbe_allCh")->second->Fill((sta) + 4*(wh+2));
+            std::string hName = std::string("DT_nFailingProbePerCh_W") + std::to_string(DT_wheel);  
+            m_histos.find(hName)->second->Fill(DT_sector, DT_station);
+            m_histos.find("DT_nFailingProbe_allCh")->second->Fill((DT_station) + 4*(DT_wheel+2));
           }
-
         }
-
       }
 
-      //Fill CSC numerator and denominator plots
-      uint8_t CSC_matchPatt = tnpPair_CSC_stationMatching_maxPt.second;
+      //Loop over CSC matches
+      unsigned nCSC_matches = probe_coll_CSC_zend.at(i).size();
+      for(unsigned j=0; j<nCSC_matches; ++j){
+        int CSC_zendcap = probe_coll_CSC_zend.at(i).at(j);
+        int CSC_sta     = probe_coll_CSC_sta.at(i).at(j);
+        int CSC_ring    = probe_coll_CSC_ring.at(i).at(j);
+        float CSC_dx    = probe_coll_CSC_dx.at(i).at(j);
 
-      for(unsigned i = 0 ; i < tnpPair_CSC_ZStaRing_maxPt.second.size(); ++i)
-      {
-        int zendcap = tnpPair_CSC_ZStaRing_maxPt.second.at(i)[0];
-        int sta     = tnpPair_CSC_ZStaRing_maxPt.second.at(i)[1];
-        int ring    = tnpPair_CSC_ZStaRing_maxPt.second.at(i)[2];
-
-	float dx = tnpPair_CSC_dx_maxPt.second.at(i);
-
-        if ((CSC_matchPatt & (1<<(sta-1))) != 0 && //avoids 0 station matching
-            (CSC_matchPatt & (1<<(sta-1))) !=CSC_matchPatt && //avoids matching with the station under consideration only
-            dx > 0.)
+        //Fill CSC plots
+        if ((CSC_matchPatt & (1<<(CSC_sta-1))) != 0 && //avoids 0 station matching
+            (CSC_matchPatt & (1<<(CSC_sta-1))) !=CSC_matchPatt && //avoids matching with the station under consideration only
+            CSC_dx > 0.)
         {
-          if (dx < m_dxCut)
+          if (CSC_dx < m_dxCut)
           {
-            m_histos.find("CSC_nPassingProbe_allCh")->second->Fill(zendcap*sta, ring);
-            m_histos.find("CSC_nPassingProbe_allCh_1D")->second->Fill(zendcap*sta);
+            m_histos.find("CSC_nPassingProbe_allCh")->second->Fill(CSC_zendcap*CSC_sta, CSC_ring);
+            m_histos.find("CSC_nPassingProbe_allCh_1D")->second->Fill(CSC_zendcap*CSC_sta);
           }
           else
           {
-            m_histos.find("CSC_nFailingProbe_allCh")->second->Fill(zendcap*sta, ring);
-            m_histos.find("CSC_nFailingProbe_allCh_1D")->second->Fill(zendcap*sta);
+            m_histos.find("CSC_nFailingProbe_allCh")->second->Fill(CSC_zendcap*CSC_sta, CSC_ring);
+            m_histos.find("CSC_nFailingProbe_allCh_1D")->second->Fill(CSC_zendcap*CSC_sta);
           }
 
         }
-
       }
 
-      //Fill RPC numerator and denominator plots
-      uint8_t RPC_matchPatt = tnpPair_RPC_stationMatching_maxPt.second;
+      //Loop over RPC matches
+      unsigned nRPC_matches = probe_coll_RPC_region.at(i).size();
+      for(unsigned j=0; j<nRPC_matches; ++j){
+        //RPC variables
+        int RPC_region = probe_coll_RPC_region.at(i).at(j);
+        int RPC_ring   = probe_coll_RPC_ring.at(i).at(j);
+        int RPC_sta    = probe_coll_RPC_sta.at(i).at(j);
+        int RPC_sec    = probe_coll_RPC_sec.at(i).at(j);
+        int RPC_lay    = probe_coll_RPC_lay.at(i).at(j);
+        int RPC_subsec = probe_coll_RPC_sub.at(i).at(j);
+        int RPC_roll   = probe_coll_RPC_roll.at(i).at(j);
+        float RPC_dx   = probe_coll_RPC_dx.at(i).at(j);
 
-      for(unsigned i = 0 ; i < tnpPair_RPC_ReRiStSeLaSuRo_maxPt.second.size(); ++i)
-      {
-        int region = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.second.at(i)[0];
-        int ring   = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.second.at(i)[1];
-        int sta    = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.second.at(i)[2];
-        int sec    = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.second.at(i)[3];
-        int lay    = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.second.at(i)[4];
-        int subsec = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.second.at(i)[5];
-        int roll   = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.second.at(i)[6];
-
-	float dx = tnpPair_RPC_dx_maxPt.second.at(i);
-
-        if ((RPC_matchPatt & (1<<(sta-1))) != 0 && //avoids 0 station matching
-            dx > 0.)
+        //Fill RPC plots
+        if ((RPC_matchPatt & (1<<(RPC_sta-1))) != 0 && //avoids 0 station matching
+            RPC_dx > 0.)
         {
-          if (dx < m_dxCut)
+          if (RPC_dx < m_dxCut)
           {
-	    if (region == 0){
-	      int barrel_histo_xcoord = sec;
-	      int barrel_histo_ycoord = get_barrel_histo_ycoord(ring,sta,sec,lay,subsec,roll);
+            //Barrel region
+            if (RPC_region == 0){
+              int barrel_histo_xcoord = RPC_sec;
+              int barrel_histo_ycoord = get_barrel_histo_ycoord(RPC_ring,RPC_sta,RPC_sec,RPC_lay,RPC_subsec,RPC_roll);
 
-              std::string hName = std::string("RPC_nPassingProbePerRoll_Barrel_W") + std::to_string(ring);  
+              std::string hName = std::string("RPC_nPassingProbePerRoll_Barrel_W") + std::to_string(RPC_ring);  
               m_histos.find(hName)->second->Fill(barrel_histo_xcoord, barrel_histo_ycoord);
 
-              std::string hName_1D = std::string("RPC_nPassingProbePerRoll_Barrel_1D_W") + std::to_string(ring);  
+              std::string hName_1D = std::string("RPC_nPassingProbePerRoll_Barrel_1D_W") + std::to_string(RPC_ring);  
               m_histos.find(hName_1D)->second->Fill(barrel_histo_ycoord);
 
-              m_histos.find("RPC_nPassingProbe_Barrel_allCh_1D")->second->Fill((sta) + 4*(ring+2));
-	    }
-	    else{
-	      int endcap_histo_xcoord = (6*(sec-1)) + subsec;
-	      int endcap_histo_ycoord = (3*(ring-2))+roll;
+              m_histos.find("RPC_nPassingProbe_Barrel_allCh_1D")->second->Fill((RPC_sta) + 4*(RPC_ring+2));
+            }
+            //Endcap region
+            else{
+              int endcap_histo_xcoord = (6*(RPC_sec-1)) + RPC_subsec;
+              int endcap_histo_ycoord = (3*(RPC_ring-2))+ RPC_roll;
 
-              std::string hName = std::string("RPC_nPassingProbePerRoll_Endcap_Sta") + std::to_string(sta*region);  
+              std::string hName = std::string("RPC_nPassingProbePerRoll_Endcap_Sta") + std::to_string(RPC_sta*RPC_region);  
               m_histos.find(hName)->second->Fill(endcap_histo_xcoord, endcap_histo_ycoord);
 
-              std::string hName_1D = std::string("RPC_nPassingProbePerRoll_Endcap_1D_Sta") + std::to_string(sta*region);  
+              std::string hName_1D = std::string("RPC_nPassingProbePerRoll_Endcap_1D_Sta") + std::to_string(RPC_sta*RPC_region);  
               m_histos.find(hName_1D)->second->Fill(endcap_histo_ycoord);
 
-              m_histos.find("RPC_nPassingProbe_Endcap_allCh_1D")->second->Fill(region*sta);
-	    }
+              m_histos.find("RPC_nPassingProbe_Endcap_allCh_1D")->second->Fill(RPC_region*RPC_sta);
+            }
           }
           else
           {
-	    if (region == 0){
-	      int barrel_histo_xcoord = sec;
-	      int barrel_histo_ycoord = get_barrel_histo_ycoord(ring,sta,sec,lay,subsec,roll);
+            //Barrel region
+            if (RPC_region == 0){
+              int barrel_histo_xcoord = RPC_sec;
+              int barrel_histo_ycoord = get_barrel_histo_ycoord(RPC_ring,RPC_sta,RPC_sec,RPC_lay,RPC_subsec,RPC_roll);
 
-              std::string hName = std::string("RPC_nFailingProbePerRoll_Barrel_W") + std::to_string(ring);  
+              std::string hName = std::string("RPC_nFailingProbePerRoll_Barrel_W") + std::to_string(RPC_ring);  
               m_histos.find(hName)->second->Fill(barrel_histo_xcoord, barrel_histo_ycoord);
 
-              std::string hName_1D = std::string("RPC_nFailingProbePerRoll_Barrel_1D_W") + std::to_string(ring);  
+              std::string hName_1D = std::string("RPC_nFailingProbePerRoll_Barrel_1D_W") + std::to_string(RPC_ring);  
               m_histos.find(hName_1D)->second->Fill(barrel_histo_ycoord);
 
-              m_histos.find("RPC_nFailingProbe_Barrel_allCh_1D")->second->Fill((sta) + 4*(ring+2));
-	    }
-	    else{
-	      int endcap_histo_xcoord = (6*(sec-1)) + subsec;
-	      int endcap_histo_ycoord = (3*(ring-2))+roll;
+              m_histos.find("RPC_nFailingProbe_Barrel_allCh_1D")->second->Fill((RPC_sta) + 4*(RPC_ring+2));
+            }
+            //Endcap region
+            else{
+              int endcap_histo_xcoord = (6*(RPC_sec-1)) + RPC_subsec;
+              int endcap_histo_ycoord = (3*(RPC_ring-2))+ RPC_roll;
 
-              std::string hName = std::string("RPC_nFailingProbePerRoll_Endcap_Sta") + std::to_string(sta*region);  
+              std::string hName = std::string("RPC_nFailingProbePerRoll_Endcap_Sta") + std::to_string(RPC_sta*RPC_region);  
               m_histos.find(hName)->second->Fill(endcap_histo_xcoord, endcap_histo_ycoord);
 
-              std::string hName_1D = std::string("RPC_nFailingProbePerRoll_Endcap_1D_Sta") + std::to_string(sta*region);  
+              std::string hName_1D = std::string("RPC_nFailingProbePerRoll_Endcap_1D_Sta") + std::to_string(RPC_sta*RPC_region);  
               m_histos.find(hName_1D)->second->Fill(endcap_histo_ycoord);
 
-              m_histos.find("RPC_nFailingProbe_Endcap_allCh_1D")->second->Fill(region*sta);
-	    }
+              m_histos.find("RPC_nFailingProbe_Endcap_allCh_1D")->second->Fill(RPC_region*RPC_sta);
+            }
           }
-
         }
-
       }
-
-      //2) test the combination probe + tag
-      DT_matchPatt = tnpPair_DT_stationMatching_maxPt.first;
-      CSC_matchPatt = tnpPair_CSC_stationMatching_maxPt.first;
-      RPC_matchPatt = tnpPair_RPC_stationMatching_maxPt.first;
-
-      if (m_tagSelector(tnpPair_maxPt.second) && probeFiresTrig) //consider probe as tag
-      {
-        //Fill detailed plots
-        if (m_detailedAnalysis)
-        {
-          m_histos.find("probeEta")->second->Fill(tnpPair_maxPt.first.eta());
-          m_histos.find("probePhi")->second->Fill(tnpPair_maxPt.first.phi());
-          m_histos.find("probeNumberOfMatchedStations")->second->Fill(tnpPair_maxPt.first.numberOfMatchedStations());
-          m_histos.find("probePt")->second->Fill(tnpPair_maxPt.first.pt());
-        }
-
-	//Fill DT numerator and denominator plots
-        for(unsigned i = 0 ; i < tnpPair_DT_WhSecSta_maxPt.first.size(); ++i)
-        {
-          int wh  = tnpPair_DT_WhSecSta_maxPt.first.at(i)[0];
-          int sec = tnpPair_DT_WhSecSta_maxPt.first.at(i)[1];
-          int sta = tnpPair_DT_WhSecSta_maxPt.first.at(i)[2];
-
-          float dx = tnpPair_DT_dx_maxPt.first.at(i);
-
-          if ((DT_matchPatt & (1<<(sta-1))) != 0 && //avoids 0 station matching
-              (DT_matchPatt & (1<<(sta-1))) !=DT_matchPatt && //avoids matching with the station under consideration only
-              dx > 0.)
-          {
-            if (dx < m_dxCut)
-            {
-              std::string hName = std::string("DT_nPassingProbePerCh_W") + std::to_string(wh);  
-              m_histos.find(hName)->second->Fill(sec, sta);
-              m_histos.find("DT_nPassingProbe_allCh")->second->Fill((sta) + 4*(wh+2));
-            }
-            else
-            {
-              std::string hName = std::string("DT_nFailingProbePerCh_W") + std::to_string(wh);  
-              m_histos.find(hName)->second->Fill(sec, sta);
-              m_histos.find("DT_nFailingProbe_allCh")->second->Fill((sta) + 4*(wh+2));
-            }
-
-          }
-
-        } 
-
-        //Fill CSC numerator and denominator plots
-        for(unsigned i = 0 ; i < tnpPair_CSC_ZStaRing_maxPt.first.size(); ++i)
-        {
-          int zendcap = tnpPair_CSC_ZStaRing_maxPt.first.at(i)[0];
-          int sta     = tnpPair_CSC_ZStaRing_maxPt.first.at(i)[1];
-          int ring    = tnpPair_CSC_ZStaRing_maxPt.first.at(i)[2];
-
-          float dx = tnpPair_CSC_dx_maxPt.first.at(i);
-
-          if ((CSC_matchPatt & (1<<(sta-1))) != 0 && //avoids 0 station matching
-              (CSC_matchPatt & (1<<(sta-1))) !=CSC_matchPatt && //avoids matching with the station under consideration only
-              dx > 0.)
-          {
-            if (dx < m_dxCut)
-            {
-              m_histos.find("CSC_nPassingProbe_allCh")->second->Fill(zendcap*sta, ring);
-              m_histos.find("CSC_nPassingProbe_allCh_1D")->second->Fill(zendcap*sta);
-            }
-            else
-            {
-              m_histos.find("CSC_nFailingProbe_allCh")->second->Fill(zendcap*sta, ring);
-              m_histos.find("CSC_nFailingProbe_allCh_1D")->second->Fill(zendcap*sta);
-            }
-
-          }
-
-        }
-
-
-        //Fill RPC numerator and denominator plots
-        for(unsigned i = 0 ; i < tnpPair_RPC_ReRiStSeLaSuRo_maxPt.first.size(); ++i)
-        {
-          int region = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.first.at(i)[0];
-          int ring   = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.first.at(i)[1];
-          int sta    = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.first.at(i)[2];
-          int sec    = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.first.at(i)[3];
-          int lay    = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.first.at(i)[4];
-          int subsec = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.first.at(i)[5];
-          int roll   = tnpPair_RPC_ReRiStSeLaSuRo_maxPt.first.at(i)[6];
-
-          float dx = tnpPair_RPC_dx_maxPt.first.at(i);
-
-          if ((RPC_matchPatt & (1<<(sta-1))) != 0 && //avoids 0 station matching
-              dx > 0.)
-          {
-            if (dx < m_dxCut)
-            {
-              if (region == 0){
-	        int barrel_histo_xcoord = sec;
-	        int barrel_histo_ycoord = get_barrel_histo_ycoord(ring,sta,sec,lay,subsec,roll);
-
-                std::string hName = std::string("RPC_nPassingProbePerRoll_Barrel_W") + std::to_string(ring);  
-                m_histos.find(hName)->second->Fill(barrel_histo_xcoord, barrel_histo_ycoord);
-
-                std::string hName_1D = std::string("RPC_nPassingProbePerRoll_Barrel_1D_W") + std::to_string(ring);  
-                m_histos.find(hName_1D)->second->Fill(barrel_histo_ycoord);
-
-                m_histos.find("RPC_nPassingProbe_Barrel_allCh_1D")->second->Fill((sta) + 4*(ring+2));
-              }
-              else{
-	        int endcap_histo_xcoord = (6*(sec-1)) + subsec;
-	        int endcap_histo_ycoord = (3*(ring-2))+roll;
-
-                std::string hName = std::string("RPC_nPassingProbePerRoll_Endcap_Sta") + std::to_string(sta*region);  
-                m_histos.find(hName)->second->Fill(endcap_histo_xcoord, endcap_histo_ycoord);
-
-                std::string hName_1D = std::string("RPC_nPassingProbePerRoll_Endcap_1D_Sta") + std::to_string(sta*region);  
-                m_histos.find(hName_1D)->second->Fill(endcap_histo_ycoord);
-
-                m_histos.find("RPC_nPassingProbe_Endcap_allCh_1D")->second->Fill(region*sta);
-              }
-            }
-            else
-            {
-              if (region == 0){
-	        int barrel_histo_xcoord = sec;
-	        int barrel_histo_ycoord = get_barrel_histo_ycoord(ring,sta,sec,lay,subsec,roll);
-
-                std::string hName = std::string("RPC_nFailingProbePerRoll_Barrel_W") + std::to_string(ring);  
-                m_histos.find(hName)->second->Fill(barrel_histo_xcoord, barrel_histo_ycoord);
-
-                std::string hName_1D = std::string("RPC_nFailingProbePerRoll_Barrel_1D_W") + std::to_string(ring);  
-                m_histos.find(hName_1D)->second->Fill(barrel_histo_ycoord);
-
-                m_histos.find("RPC_nFailingProbe_Barrel_allCh_1D")->second->Fill((sta) + 4*(ring+2));
-              }
-              else{
-	        int endcap_histo_xcoord = (6*(sec-1)) + subsec;
-	        int endcap_histo_ycoord = (3*(ring-2))+roll;
-
-                std::string hName = std::string("RPC_nFailingProbePerRoll_Endcap_Sta") + std::to_string(sta*region);  
-                m_histos.find(hName)->second->Fill(endcap_histo_xcoord, endcap_histo_ycoord);
-
-                std::string hName_1D = std::string("RPC_nFailingProbePerRoll_Endcap_1D_Sta") + std::to_string(sta*region);  
-                m_histos.find(hName_1D)->second->Fill(endcap_histo_ycoord);
-
-                m_histos.find("RPC_nFailingProbe_Endcap_allCh_1D")->second->Fill(region*sta);
-              }
-            }
-
-          }
-
-        }
-
-      }
-
     }
-
-
-
 }
 
 void DTTnPEfficiencyTask::bookWheelHistos(DQMStore::IBooker& iBooker, 
@@ -1027,7 +784,7 @@ void DTTnPEfficiencyTask::bookWheelHistos(DQMStore::IBooker& iBooker,
   me_RPC_pass->setBinLabel(2,  "RB1in F", 2);
   me_RPC_pass->setBinLabel(3,  "RB1out B", 2);
   me_RPC_pass->setBinLabel(4,  "RB1out F", 2);
-  if(fabs(wheel)<2){
+  if(std::abs(wheel)<2){
     me_RPC_pass->setBinLabel(5,  "RB2in B", 2);
     me_RPC_pass->setBinLabel(6,  "RB2in M", 2);
     me_RPC_pass->setBinLabel(7,  "RB2in F", 2);
@@ -1063,7 +820,7 @@ void DTTnPEfficiencyTask::bookWheelHistos(DQMStore::IBooker& iBooker,
   me_RPC_fail->setBinLabel(2,  "RB1in F", 2);
   me_RPC_fail->setBinLabel(3,  "RB1out B", 2);
   me_RPC_fail->setBinLabel(4,  "RB1out F", 2);
-  if(fabs(wheel)<2){
+  if(std::abs(wheel)<2){
     me_RPC_fail->setBinLabel(5,  "RB2in B", 2);
     me_RPC_fail->setBinLabel(6,  "RB2in M", 2);
     me_RPC_fail->setBinLabel(7,  "RB2in F", 2);
@@ -1099,7 +856,7 @@ void DTTnPEfficiencyTask::bookWheelHistos(DQMStore::IBooker& iBooker,
   me_RPC_pass_1D->setBinLabel(2,  "RB1in F", 1);
   me_RPC_pass_1D->setBinLabel(3,  "RB1out B", 1);
   me_RPC_pass_1D->setBinLabel(4,  "RB1out F", 1);
-  if(fabs(wheel)<2){
+  if(std::abs(wheel)<2){
     me_RPC_pass_1D->setBinLabel(5,  "RB2in B", 1);
     me_RPC_pass_1D->setBinLabel(6,  "RB2in M", 1);
     me_RPC_pass_1D->setBinLabel(7,  "RB2in F", 1);
@@ -1131,7 +888,7 @@ void DTTnPEfficiencyTask::bookWheelHistos(DQMStore::IBooker& iBooker,
   me_RPC_fail_1D->setBinLabel(2,  "RB1in F", 1);
   me_RPC_fail_1D->setBinLabel(3,  "RB1out B", 1);
   me_RPC_fail_1D->setBinLabel(4,  "RB1out F", 1);
-  if(fabs(wheel)<2){
+  if(std::abs(wheel)<2){
     me_RPC_fail_1D->setBinLabel(5,  "RB2in B", 1);
     me_RPC_fail_1D->setBinLabel(6,  "RB2in M", 1);
     me_RPC_fail_1D->setBinLabel(7,  "RB2in F", 1);
@@ -1282,13 +1039,13 @@ int DTTnPEfficiencyTask::get_barrel_histo_ycoord(int ring,
 
   if (station < 3){
     //There are three rolls in RB2in for wheel=-1,0,+1 and in RB2out for wheel=-2,+2
-    bool three_rolls = station == 2 && ((fabs(ring)>1 && layer ==2) || (fabs(ring)<2 && layer ==1));
+    bool three_rolls = station == 2 && ((std::abs(ring)>1 && layer ==2) || (std::abs(ring)<2 && layer ==1));
     
     int layer_roll;
     
     if (!three_rolls){
       roll = roll>1 ? 2 : 1;
-      int a = station==2 && fabs(ring)<2 && layer==2 ? 3 : 2;
+      int a = station==2 && std::abs(ring)<2 && layer==2 ? 3 : 2;
       layer_roll = (a*(layer-1)) + roll;
     }
     else{
