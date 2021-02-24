@@ -389,17 +389,17 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
       bool pair_found = false;
 
       for(const auto i_probe : preSel_probe_indices){
-        reco::Muon preSel_probe = (*muons).at(i_probe);
-	float tnp_dR = deltaR(tag, preSel_probe);
-	float tnp_dPt = std::abs(tag.pt() - preSel_probe.pt());
+        //Prevent tag and probe to be the same object
+        if(i_probe==i_tag) continue;
 
-	if (tnp_dR<0.01 && tnp_dPt<0.01) continue;
+        reco::Muon preSel_probe = (*muons).at(i_probe);
 
 	int pair_charge_product = tag.charge()*preSel_probe.charge();
-        float pair_mass = (tag.polarP4()+preSel_probe.polarP4()).M();
 
 	//check if tag+probe pair is compatible with Z decay
 	if(pair_charge_product>0) continue;
+
+        float pair_mass = (tag.polarP4()+preSel_probe.polarP4()).M();
 	m_histos.find("pairMass")->second->Fill(pair_mass);
 
 	if(pair_mass<m_lowPairMassCut || pair_mass>m_highPairMassCut) continue;
@@ -480,7 +480,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
             probe_DT_wh.push_back(wheel);
             probe_DT_sec.push_back(sector);
             probe_DT_sta.push_back(station);
-            probe_DT_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
+            probe_DT_dx.push_back(smallestDx);
               
           }  
         }
@@ -513,7 +513,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
             probe_CSC_zend.push_back(zendcap);
             probe_CSC_ring.push_back(ring);
             probe_CSC_sta.push_back(station);
-            probe_CSC_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
+            probe_CSC_dx.push_back(smallestDx);
           }  
 	}
 
@@ -533,7 +533,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
             int layer     = chId.layer();
             int roll      = chId.roll();
 
-	    reco::MuonRPCHitMatch closest_matchedSegment;
+	    reco::MuonRPCHitMatch closest_matchedRPCHit;
             double smallestDx = 999.;
 	    for (auto & seg : chambMatch.rpcMatches)
 	    {
@@ -541,7 +541,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
 
               if (dx < smallestDx){
 	        smallestDx = dx;
-	        closest_matchedSegment = seg;
+	        closest_matchedRPCHit = seg;
 	      }
 	    }
 
@@ -554,7 +554,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
             probe_RPC_lay.push_back(layer);
             probe_RPC_sub.push_back(subsector);
             probe_RPC_roll.push_back(roll);
-            probe_RPC_dx.push_back(std::abs(chambMatch.x - closest_matchedSegment.x));
+            probe_RPC_dx.push_back(smallestDx);
           }  
 	}
 	else continue;
@@ -584,12 +584,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
       probe_coll_RPC_staMatch.push_back(RPC_stationMatching);
     }//loop over probe collection
 
-    
-    //There should be no need to check that probe_indices
-    //has the same size of probe_coll_DT*,probe_coll_CSC* 
-    //and probe_coll_RPC* vectors since they are filled 
-    //at each iteration over probe_indices
-
     //Loop over probes
     for(unsigned i=0; i<probe_indices.size(); ++i){
       uint8_t DT_matchPatt = probe_coll_DT_staMatch.at(i);
@@ -607,8 +601,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
         
         //Fill DT plots
         if ((DT_matchPatt & (1<<(DT_station-1))) != 0 && //avoids 0 station matching
-            (DT_matchPatt & (1<<(DT_station-1))) !=DT_matchPatt && //avoids matching with the station under consideration only
-            DT_dx > 0.)
+            (DT_matchPatt & (1<<(DT_station-1))) !=DT_matchPatt) //avoids matching with the station under consideration only
         {
           if (DT_dx < m_dxCut)
           {
@@ -635,8 +628,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
 
         //Fill CSC plots
         if ((CSC_matchPatt & (1<<(CSC_sta-1))) != 0 && //avoids 0 station matching
-            (CSC_matchPatt & (1<<(CSC_sta-1))) !=CSC_matchPatt && //avoids matching with the station under consideration only
-            CSC_dx > 0.)
+            (CSC_matchPatt & (1<<(CSC_sta-1))) !=CSC_matchPatt) //avoids matching with the station under consideration only
         {
           if (CSC_dx < m_dxCut)
           {
@@ -666,8 +658,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
         float RPC_dx   = probe_coll_RPC_dx.at(i).at(j);
 
         //Fill RPC plots
-        if ((RPC_matchPatt & (1<<(RPC_sta-1))) != 0 && //avoids 0 station matching
-            RPC_dx > 0.)
+        if ((RPC_matchPatt & (1<<(RPC_sta-1))) != 0) //avoids 0 station matching
         {
           if (RPC_dx < m_dxCut)
           {
