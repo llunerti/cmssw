@@ -97,32 +97,6 @@ void DTTnPEfficiencyTask::bookHistograms(DQMStore::IBooker& iBooker, edm::Run co
       LogTrace("DTDQM|DTMonitorModule|DTTnPEfficiencyTask")
 	<< "[DTTnPEfficiencyTask]: booking histos in " << baseDir << std::endl;
 
-      //Plots for further checks------------------------------
-      std::vector<int> forward_rings {1,4};
-      for(int sta=1; sta<5; ++sta){
-        for(auto ring : forward_rings){
-          if(sta>1 && ring>1) continue;
-          m_histos["anySegMatch_CSC_Sta"+std::to_string(sta)+"_Ring"+std::to_string(ring)]  = iBooker.book1D("anySegMatch_CSC_Sta"+std::to_string(sta)+"_Ring"+std::to_string(ring) , "anySegMatch_CSC_Sta"+std::to_string(sta)+"_Ring"+std::to_string(ring)+"; At least one matched segment (no=0, yes=1);Events",2, 0., 2.);
-	  
-	}
-      }
-      m_histos["anySegMatch_CSC_Ring2_Sta1"]  = iBooker.book1D("anySegMatch_CSC_Ring2_Sta1", "anySegMatch_CSC_Ring2_Sta1;At least one matched segment (no=0, yes=1);Events"  ,2, 0., 2.);
-      m_histos["probe_ME11_crossPattern"]  = iBooker.book1D("probe_ME11_crossPattern", "probe_ME11_crossPattern; ME1/1 (0=single,1=both);Events"  ,2, 0., 2.);
-      m_histos["probe_ME11_segFoundPattern"]  = iBooker.book2D("probe_ME11_segFoundPattern", "probe_ME11_segFoundPattern; segment found ME1/1B (no=0, yes=1);segment found ME1/1B (no=0, yes=1)",2, 0., 2.,2,0.,2.);
-      m_histos["probe_ME11B_dx"]  = iBooker.book1D("probe_ME11B_dx", "probe_ME11B_dx; ME11B dx [cm];Events"  ,100, 0., 30.);
-      m_histos["probe_ME11A_dx"]  = iBooker.book1D("probe_ME11A_dx", "probe_ME11A_dx; ME11A dx [cm];Events"  ,100, 0., 30.);
-
-      m_histos["probe_ME11B_vs_ME11A_x"]  = iBooker.book2D("probe_ME11B_vs_ME11A_x", "probe_ME11B_vs_ME11A_x; ME11B x [cm]; ME11A x [cm]", 100, -50, 50., 100, -50, 50.);
-      m_histos["probe_ME11B_vs_ME11A_y"]  = iBooker.book2D("probe_ME11B_vs_ME11A_y", "probe_ME11B_vs_ME11A_y; ME11B y [cm]; ME11A y [cm]", 100, -50, 50., 100, -50, 50.);
-      m_histos["probe_ME11B_vs_ME11A_edge_x"]  = iBooker.book2D("probe_ME11B_vs_ME11A_edge_x", "probe_ME11B_vs_ME11A_edge_x; ME11B edge_x [cm]; ME11A edge_x [cm]", 140, -70, 70., 140, -70, 70.);
-      m_histos["probe_ME11B_vs_ME11A_edge_y"]  = iBooker.book2D("probe_ME11B_vs_ME11A_edge_y", "probe_ME11B_vs_ME11A_edge_y; ME11B edge_y [cm]; ME11A edge_y [cm]", 140, -70, 70., 140, -70, 70.);
-      m_histos["probe_ME11A_x_vs_y"]  = iBooker.book2D("probe_ME11A_x_vs_y", "probe_ME11A_x_vs_y; ME11A x [cm]; ME11A y [cm]", 140, -70, 70., 140, -70, 70.);
-      m_histos["probe_ME11B_x_vs_y"]  = iBooker.book2D("probe_ME11B_x_vs_y", "probe_ME11B_x_vs_y; ME11B x [cm]; ME11B y [cm]", 140, -70, 70., 140, -70, 70.);
-      m_histos["probe_ME11AandB_x_vs_y"]  = iBooker.book2D("probe_ME11AandB_x_vs_y", "probe_ME11AandB_x_vs_y; ME11 x [cm]; ME11 y [cm]", 140, -70, 70., 140, -70, 70.);
-      m_histos["probe_ME11A_edgex_vs_edgey"]  = iBooker.book2D("probe_ME11A_edgex_vs_edgey", "probe_ME11A_edgex_vs_edgey; ME11A edge x [cm]; ME11A edge y [cm]", 100, -100, 0., 100, -100, 0.);
-      m_histos["probe_ME11B_edgex_vs_edgey"]  = iBooker.book2D("probe_ME11B_edgex_vs_edgey", "probe_ME11B_edgex_vs_edgey; ME11B edge x [cm]; ME11B edge y [cm]", 100, -100, 0., 100, -100, 0.);
-      //------------------------------------------------------
-
       m_histos["probePt"] = iBooker.book1D("probePt", "probePt;probe p_{T} [GeV];Events", 125, 0., 250.);
       m_histos["probeEta"] = iBooker.book1D("probeEta", "probeEta;probe #eta;Events",24, -2.4, 2.4);
       m_histos["probePhi"] = iBooker.book1D("probePhi", "probePhi;probe #phi; Events",36, -TMath::Pi(), TMath::Pi());
@@ -458,23 +432,7 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
       std::vector<int> probe_CSC_ring;
       std::vector<int> probe_CSC_sta;
       std::vector<float> probe_CSC_dx;
-      std::vector<float> probe_CSC_anySegMatch;
       uint8_t CSC_stationMatching = 0;
-      double ME11A_dx = 9999.;
-      double ME11B_dx = 9999.;
-      double ME11A_x = 9999.;
-      double ME11B_x = 9999.;
-      double ME11A_y = 9999.;
-      double ME11B_y = 9999.;
-      double ME11A_edge_x = 9999;
-      double ME11B_edge_x = 9999;
-      double ME11A_edge_y = 9999;
-      double ME11B_edge_y = 9999;
-      bool crossing_ME11A = false;
-      bool crossing_ME11B = false;
-      bool ME11A_segFound = false;
-      bool ME11B_segFound = false;
-      bool anySegMatches_CSC = false;
       //RPC variables
       std::vector<int> probe_RPC_region;
       std::vector<int> probe_RPC_ring;
@@ -554,35 +512,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
 	      }
 	    }
 
-            //-------TEST-----------------
-	    if (station == 1 && ring == 1){
-	      ME11B_dx = smallestDx;
-	      ME11B_x = chambMatch.x;
-	      ME11B_y = chambMatch.x;
-	      ME11B_edge_x = chambMatch.edgeX;
-	      ME11B_edge_y = chambMatch.edgeY;
-	      crossing_ME11B = true;
-              if (smallestDx<99998.) {
-	        ME11B_segFound = true;
-	        m_histos.find("probe_ME11B_x_vs_y")->second->Fill(chambMatch.x,chambMatch.y);
-	        m_histos.find("probe_ME11B_edgex_vs_edgey")->second->Fill(chambMatch.edgeX,chambMatch.edgeY);
-		}
-	    }
-	    if (station == 1 && ring == 4){
-	      ME11A_dx = smallestDx;
-	      ME11A_x = chambMatch.x;
-	      ME11A_y = chambMatch.x;
-	      ME11A_edge_x = chambMatch.edgeX;
-	      ME11A_edge_y = chambMatch.edgeY;
-	      crossing_ME11A = true;
-              if (smallestDx<99998.){
-	        ME11A_segFound = true;
-	        m_histos.find("probe_ME11A_x_vs_y")->second->Fill(chambMatch.x,chambMatch.y);
-	        m_histos.find("probe_ME11A_edgex_vs_edgey")->second->Fill(chambMatch.edgeX,chambMatch.edgeY);
-		}
-	    }
-	    //-----------------------------
-
 	    CSC_stationMatching = CSC_stationMatching | (1 << (station-1));
 
 	    if (station == 1 && ring == 4 && chambMatch.y < -31.5){
@@ -652,20 +581,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
 	else continue;
       }//loop over chamber matches
 
-      if (crossing_ME11B || crossing_ME11A){
-        m_histos.find("probe_ME11_crossPattern")->second->Fill((crossing_ME11B && crossing_ME11A) ? 1. : 0.);
-        m_histos.find("probe_ME11_segFoundPattern")->second->Fill(ME11B_segFound?1.:0,ME11A_segFound?1.:0);
-        if (crossing_ME11B) m_histos.find("probe_ME11B_dx")->second->Fill(std::abs(ME11B_dx));
-        if (crossing_ME11A) m_histos.find("probe_ME11A_dx")->second->Fill(std::abs(ME11A_dx));
-      }
-      if (ME11A_segFound && ME11B_segFound) m_histos.find("probe_ME11AandB_x_vs_y")->second->Fill(ME11B_x,ME11B_y); //in the correlation plots below we see that chambMatch.x/y is the same for ME11A and ME11B
-      if (crossing_ME11B && crossing_ME11A){
-	m_histos.find("probe_ME11B_vs_ME11A_x")->second->Fill(ME11B_x,ME11A_x);
-	m_histos.find("probe_ME11B_vs_ME11A_y")->second->Fill(ME11B_y,ME11A_y);
-	m_histos.find("probe_ME11B_vs_ME11A_edge_x")->second->Fill(ME11B_edge_x,ME11A_edge_x);
-	m_histos.find("probe_ME11B_vs_ME11A_edge_y")->second->Fill(ME11B_edge_y,ME11A_edge_y);
-      }
-
       //Fill DT variables
       probe_coll_DT_wh.push_back(probe_DT_wh);
       probe_coll_DT_sec.push_back(probe_DT_sec);
@@ -693,8 +608,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
 
     //Loop over probes
     for(unsigned i=0; i<probe_indices.size(); ++i){
-      //unsigned probe_index = probe_indices.at(i);
-      //unsigned tag_index = tag_indices.at(i);
       
       uint8_t DT_matchPatt  = probe_coll_DT_staMatch.at(i);
       uint8_t CSC_matchPatt = probe_coll_CSC_staMatch.at(i);
