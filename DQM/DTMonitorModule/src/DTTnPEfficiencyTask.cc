@@ -334,7 +334,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
   std::vector<std::vector<int>> probe_coll_CSC_ring;
   std::vector<std::vector<int>> probe_coll_CSC_sta;
   std::vector<std::vector<float>> probe_coll_CSC_dx;
-  std::vector<std::vector<float>> probe_coll_CSC_anySegMatch;
   std::vector<uint8_t> probe_coll_CSC_staMatch;
   //RPC variables
   std::vector<std::vector<int>> probe_coll_RPC_region;
@@ -504,7 +503,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
             double smallestDx = 99999.;
 	    for (auto & seg : chambMatch.segmentMatches)
 	    {
-	      anySegMatches_CSC = true;
 	      float dx = std::abs(chambMatch.x - seg.x) ;
               if (dx < smallestDx){
 	        smallestDx = dx;
@@ -519,21 +517,18 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
             probe_CSC_ring.push_back(ring);
             probe_CSC_sta.push_back(station);
             probe_CSC_dx.push_back(smallestDx);
-            probe_CSC_anySegMatch.push_back(anySegMatches_CSC ? 1. : 0.);
 	    }
 	    else if (station == 1 && ring == 1 && chambMatch.y > -31.5){
             probe_CSC_zend.push_back(zendcap);
             probe_CSC_ring.push_back(ring);
             probe_CSC_sta.push_back(station);
             probe_CSC_dx.push_back(smallestDx);
-            probe_CSC_anySegMatch.push_back(anySegMatches_CSC ? 1. : 0.);
 	    }
 	    else if (station>1 || ring==2 || ring==3){
             probe_CSC_zend.push_back(zendcap);
             probe_CSC_ring.push_back(ring);
             probe_CSC_sta.push_back(station);
             probe_CSC_dx.push_back(smallestDx);
-            probe_CSC_anySegMatch.push_back(anySegMatches_CSC ? 1. : 0.);
 	    }
           }  
 	}
@@ -592,7 +587,6 @@ void DTTnPEfficiencyTask::analyze(const edm::Event& event, const edm::EventSetup
       probe_coll_CSC_ring.push_back(probe_CSC_ring);
       probe_coll_CSC_sta.push_back(probe_CSC_sta);
       probe_coll_CSC_dx.push_back(probe_CSC_dx);
-      probe_coll_CSC_anySegMatch.push_back(probe_CSC_anySegMatch);
       probe_coll_CSC_staMatch.push_back(CSC_stationMatching);
       //Fill RPC variables
       probe_coll_RPC_region.push_back(probe_RPC_region);
